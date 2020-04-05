@@ -313,7 +313,7 @@ void do_recover_page(struct snapshot_page *sp) {
 void do_recover_none_pte(struct snapshot_page *sp) {
 
   struct mm_struct *mm = current->mm;
-  //struct mmu_gather tlb;
+  // struct mmu_gather tlb;
   /* pmd_t *pmd; */
 
   DBG_PRINT("found none_pte refreshed page_base: 0x%08lx page_prot: 0x%08lx\n",
@@ -631,8 +631,7 @@ void recover_files_snapshot(void) {
 
   if (!fdata) {
 
-    printk(KERN_WARNING
-           "Unable to find files_struct data in recover_files_snapshot");
+    WARNF("Unable to find files_struct data in recover_files_snapshot");
     return;
 
   }
@@ -681,8 +680,7 @@ void clean_files_snapshot(void) {
 
   if (!fdata) {
 
-    printk(KERN_WARNING
-           "Unable to find files_struct data in clean_files_snapshot");
+    WARNF("Unable to find files_struct data in clean_files_snapshot");
     return;
 
   }
@@ -891,11 +889,14 @@ int snapshot_initialize_k_funcs() {
 
   if (!k_flush_tlb_mm_range || !k_zap_page_range) { return -ENOENT; }
 
+  SAYF("All loaded");
+
   return 0;
 
 }
 
-void make_snapshot(unsigned long cleanup_rtn, unsigned long shm_addr, unsigned long shm_size) {
+void make_snapshot(unsigned long cleanup_rtn, unsigned long shm_addr,
+                   unsigned long shm_size) {
 
   reserve_context(cleanup_rtn);
   reserve_brk();
@@ -909,7 +910,7 @@ void recover_snapshot(void) {
   struct mm_data *data = get_mm_data(current->mm);
   if (!data) {
 
-    printk(KERN_WARNING "Unable to find mm data in recover_snapshot");
+    WARNF("Unable to find mm data in recover_snapshot");
     return;
 
   }
@@ -937,7 +938,7 @@ void snapshot_cleanup(struct task_struct *tsk) {
   struct mm_data *data = get_mm_data(tsk->mm);
   if (!data) {
 
-    printk(KERN_WARNING "Unable to find mm data in snapshot_cleanup");
+    WARNF("Unable to find mm data in snapshot_cleanup");
     return;
 
   }

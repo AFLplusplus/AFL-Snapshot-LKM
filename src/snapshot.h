@@ -112,7 +112,8 @@ int snapshot_initialize_k_funcs(void);
 int wp_page_hook(struct kprobe *p, struct pt_regs *regs);
 int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs);
 
-void make_snapshot(unsigned long cleanup_rtn, unsigned long shm_addr, unsigned long shm_size);
+void make_snapshot(unsigned long cleanup_rtn, unsigned long shm_addr,
+                   unsigned long shm_size);
 void recover_snapshot(void);
 void clean_snapshot(void);
 void snapshot_cleanup(struct task_struct *tsk);

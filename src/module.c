@@ -45,21 +45,26 @@ long mod_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
   switch (cmd) {
 
     case AFL_SNAPSHOT_IOCTL_START: {
-
+    
       struct afl_snapshot_start_args args;
-      if (copy_from_user(&args, (void *)arg, sizeof(struct afl_snapshot_start_args)))
+      if (copy_from_user(&args, (void *)arg,
+                         sizeof(struct afl_snapshot_start_args)))
         return -EINVAL;
+
+      DBG_PRINT("Calling make_snapshot %p %p %ld", args.cleanup_rtn, args.shm_addr, args.shm_size);
 
       make_snapshot(args.cleanup_rtn, args.shm_addr, args.shm_size);
       return 0;
-      
+
     }
 
     case AFL_SNAPSHOT_IOCTL_END: {
     
+      DBG_PRINT("Calling recover_snapshot");
+
       recover_snapshot();
       return 0;
-      
+
     }
 
   }
@@ -175,7 +180,7 @@ static void unpatch_syscall_table(void) {
 
 static int __init mod_init(void) {
 
-  SAYF("AFL++ snapshot LKM");
+  SAYF("Loading AFL++ snapshot LKM");
 
   mod_kobj = kobject_create_and_add("afl_snapshot", kernel_kobj);
   if (!mod_kobj) return -ENOMEM;
@@ -251,6 +256,8 @@ static int __init mod_init(void) {
 }
 
 static void __exit mod_exit(void) {
+
+  SAYF("Unloading AFL++ snapshot LKM");
 
   kobject_put(mod_kobj);
 

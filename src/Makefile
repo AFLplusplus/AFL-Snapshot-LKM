@@ -13,7 +13,7 @@ ccflags-y := \
   -Wno-declaration-after-statement \
   $(CCFLAGS)
 
-ifndef RELEASE
+ifdef DEBUG
 ccflags-y += -DDEBUG
 endif
 

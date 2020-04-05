@@ -39,8 +39,7 @@
 #ifdef DEBUG
 
 #define DBG_PRINT(x...) pr_alert("[AFL++] DEBUG: " x)
-#define DBG_HEXDUMP(ptr, size) \
-  HEXDUMP(KERN_ALERT, "[AFL++] DEBUG: ", ptr, size)
+#define DBG_HEXDUMP(ptr, size) HEXDUMP(KERN_ALERT, "[AFL++] DEBUG: ", ptr, size)
 
 #else
 
