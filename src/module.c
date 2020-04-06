@@ -43,26 +43,20 @@ static char *mod_devnode(struct device *dev, umode_t *mode) {
 long mod_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 
   switch (cmd) {
-
-    case AFL_SNAPSHOT_IOCTL_START: {
+  
+    case AFL_SNAPSHOT_IOCTL_DO: {
     
-      struct afl_snapshot_start_args args;
-      if (copy_from_user(&args, (void *)arg,
-                         sizeof(struct afl_snapshot_start_args)))
-        return -EINVAL;
+      DBG_PRINT("Calling do_snapshot");
 
-      DBG_PRINT("Calling make_snapshot %p %p %ld", args.cleanup_rtn, args.shm_addr, args.shm_size);
-
-      make_snapshot(args.cleanup_rtn, args.shm_addr, args.shm_size);
-      return 0;
+      return do_snapshot();
 
     }
 
-    case AFL_SNAPSHOT_IOCTL_END: {
+    case AFL_SNAPSHOT_IOCTL_CLEAN: {
     
-      DBG_PRINT("Calling recover_snapshot");
+      DBG_PRINT("Calling clean_snapshot");
 
-      recover_snapshot();
+      clean_snapshot();
       return 0;
 
     }
@@ -94,17 +88,10 @@ syscall_handler_t orig_sct_exit_group = NULL;
 
 asmlinkage int sys_exit_group(struct pt_regs *regs) {
 
-  struct mm_data *data = get_mm_data(current->mm);
-  if (data && have_snapshot(data)) {
-
-    snapshot_cleanup(current);
-    return 0;
-
-  }
-
-  if (data && had_snapshot(data)) { clean_snapshot(); }
-
-  return orig_sct_exit_group(regs);
+  if (exit_snapshot())
+    return orig_sct_exit_group(regs);
+  
+  return 0;
 
 }
 

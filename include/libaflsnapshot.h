@@ -5,9 +5,8 @@
 
 int afl_snapshot_init();
 
-int afl_snapshot_start(void *(cleanup)(void), void *shm_addr, size_t shm_size);
-
-int afl_snapshot_end(void);
+int afl_snapshot_do(void);
+int afl_snapshot_clean(void);
 
 #endif
 

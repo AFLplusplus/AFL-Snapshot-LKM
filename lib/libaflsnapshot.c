@@ -12,20 +12,15 @@ int afl_snapshot_init() {
 
 }
 
-int afl_snapshot_start(void *(cleanup)(void), void *shm_addr, size_t shm_size) {
+int afl_snapshot_do(void) {
 
-  struct afl_snapshot_start_args args;
-  args.cleanup_rtn = (unsigned long)cleanup;
-  args.shm_addr = (unsigned long)shm_addr;
-  args.shm_size = (unsigned long)shm_size;
-
-  return ioctl(dev_fd, AFL_SNAPSHOT_IOCTL_START, &args);
+  return ioctl(dev_fd, AFL_SNAPSHOT_IOCTL_DO);
 
 }
 
-int afl_snapshot_end(void) {
+int afl_snapshot_clean(void) {
 
-  return ioctl(dev_fd, AFL_SNAPSHOT_IOCTL_END);
+  return ioctl(dev_fd, AFL_SNAPSHOT_IOCTL_CLEAN);
 
 }
 

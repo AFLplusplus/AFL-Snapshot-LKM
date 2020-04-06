@@ -35,7 +35,7 @@ struct snapshot_page {
 
   bool has_been_copied;
   bool has_had_pte;
-  bool valid;
+  bool dirty;
 
   struct hlist_node next;
 
@@ -81,14 +81,6 @@ static inline void set_snapshot_page_cow(struct snapshot_page *sp) {
 
 }
 
-struct snapshot_context {
-
-  unsigned long cleanup;
-  unsigned long sp;
-  unsigned long bp;
-
-};
-
 #define SNAPSHOT_HASHTABLE_SZ 0x8
 
 struct snapshot {
@@ -96,8 +88,9 @@ struct snapshot {
   unsigned int  status;
   unsigned long oldbrk;
 
-  struct snapshot_vma *    ss_mmap;
-  struct snapshot_context *ucontext;
+  struct snapshot_vma * ss_mmap;
+  
+  struct pt_regs regs;
 
   DECLARE_HASHTABLE(ss_page, SNAPSHOT_HASHTABLE_SZ);
 
@@ -112,11 +105,9 @@ int snapshot_initialize_k_funcs(void);
 int wp_page_hook(struct kprobe *p, struct pt_regs *regs);
 int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs);
 
-void make_snapshot(unsigned long cleanup_rtn, unsigned long shm_addr,
-                   unsigned long shm_size);
-void recover_snapshot(void);
+int do_snapshot(void);
+int exit_snapshot(void);
 void clean_snapshot(void);
-void snapshot_cleanup(struct task_struct *tsk);
 
 #endif
 
