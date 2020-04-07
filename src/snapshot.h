@@ -104,6 +104,7 @@ int snapshot_initialize_k_funcs(void);
 
 int wp_page_hook(struct kprobe *p, struct pt_regs *regs);
 int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs);
+int exit_hook(struct kprobe *p, struct pt_regs *regs);
 
 int do_snapshot(void);
 int exit_snapshot(void);

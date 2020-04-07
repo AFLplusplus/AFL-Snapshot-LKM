@@ -12,7 +12,7 @@
 #include <linux/uaccess.h>
 #include <linux/kallsyms.h>
 
-#include "associated_data.h"  // mm associated data
+#include "task_data.h"  // mm associated data
 #include "hook.h"             // function hooking
 #include "snapshot.h"         // main implementation
 #include "debug.h"
@@ -229,7 +229,17 @@ static int __init mod_init(void) {
 
   if (!try_hook("page_add_new_anon_rmap", &do_anonymous_hook)) {
 
-    FATAL("Unable to hook mem_cgroup_try_charge_delay");
+    FATAL("Unable to hook page_add_new_anon_rmap");
+
+    unhook_all();
+    unpatch_syscall_table();
+    return -ENOENT;
+
+  }
+  
+  if (!try_hook("do_exit", &exit_hook)) {
+
+    FATAL("Unable to hook do_exit");
 
     unhook_all();
     unpatch_syscall_table();

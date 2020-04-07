@@ -76,7 +76,7 @@
 
 #include "hook.h"
 #include "debug.h"
-#include "associated_data.h"
+#include "task_data.h"
 #include "snapshot.h"
 
 void (*k_flush_tlb_mm_range)(struct mm_struct *mm, unsigned long start,
@@ -188,10 +188,10 @@ out:
 
 }
 
-void munmap_new_vmas(struct mm_data *mdata) {
+void munmap_new_vmas(struct task_data *data) {
 
-  struct vm_area_struct *vma = mdata->mm->mmap;
-  struct snapshot_vma *  ss_vma = mdata->ss.ss_mmap;
+  struct vm_area_struct *vma = data->tsk->mm->mmap;
+  struct snapshot_vma *  ss_vma = data->ss.ss_mmap;
 
   unsigned long old_start = ss_vma->vm_start;
   unsigned long old_end = ss_vma->vm_end;
@@ -278,9 +278,9 @@ void munmap_new_vmas(struct mm_data *mdata) {
 
 }
 
-void clean_snapshot_vmas(struct mm_data *mdata) {
+void clean_snapshot_vmas(struct task_data *data) {
 
-  struct snapshot_vma *p = mdata->ss.ss_mmap;
+  struct snapshot_vma *p = data->ss.ss_mmap;
   struct snapshot_vma *q;
 
   DBG_PRINT("freeing snapshot vmas");
@@ -293,8 +293,6 @@ void clean_snapshot_vmas(struct mm_data *mdata) {
     kfree(q);
 
   }
-
-  remove_mm_data(mdata);
 
 }
 
@@ -356,12 +354,12 @@ void do_recover_none_pte(struct snapshot_page *sp) {
 
 }
 
-void clean_memory_snapshot(struct mm_data *mdata) {
+void clean_memory_snapshot(struct task_data *data) {
 
   struct snapshot_page *sp;
   int                   i;
 
-  hash_for_each(mdata->ss.ss_page, i, sp, next) {
+  hash_for_each(data->ss.ss_page, i, sp, next) {
 
     if (sp->page_data != NULL) kfree(sp->page_data);
 
@@ -371,16 +369,16 @@ void clean_memory_snapshot(struct mm_data *mdata) {
 
 }
 
-void make_snapshot_page(struct vm_area_struct *vma, unsigned long addr);
+void make_snapshot_page(struct task_data *data, struct vm_area_struct *vma, unsigned long addr);
 
-void recover_memory_snapshot(struct mm_data *mdata) {
+void recover_memory_snapshot(struct task_data *data) {
 
   struct vm_area_struct *pvma = current->mm->mmap;
   struct snapshot_page *sp, *prev_sp = NULL;
   pte_t *               pte, entry;
   int                   i;
 
-  hash_for_each(mdata->ss.ss_page, i, sp, next) {
+  hash_for_each(data->ss.ss_page, i, sp, next) {
 
     if (sp->dirty && sp->has_been_copied) { // it has been captured by page fault
       
@@ -392,7 +390,7 @@ void recover_memory_snapshot(struct mm_data *mdata) {
       if (pte) {
 
         entry = pte_mkwrite(*pte);
-        set_pte_at(mdata->mm, sp->page_base, pte, entry);
+        set_pte_at(data->tsk->mm, sp->page_base, pte, entry);
         // ghost
         // __flush_tlb_one(sp->page_base & PAGE_MASK);
 
@@ -410,13 +408,13 @@ void recover_memory_snapshot(struct mm_data *mdata) {
 
 }
 
-struct snapshot_page *get_snapshot_page(struct mm_data *mdata,
+struct snapshot_page *get_snapshot_page(struct task_data *data,
                                         unsigned long   page_base) {
 
   struct snapshot_page *sp;
 
   // printk("in is_snapshot_page");
-  hash_for_each_possible(mdata->ss.ss_page, sp, next, page_base) {
+  hash_for_each_possible(data->ss.ss_page, sp, next, page_base) {
 
     // printk("try hash page: 0x%08lx\n", sp->page_base);
     if (sp->page_base == page_base) return sp;
@@ -427,19 +425,19 @@ struct snapshot_page *get_snapshot_page(struct mm_data *mdata,
 
 }
 
-struct snapshot_page *add_snapshot_page(struct mm_data *mdata,
+struct snapshot_page *add_snapshot_page(struct task_data *data,
                                         unsigned long   page_base) {
 
   struct snapshot_page *sp;
 
-  sp = get_snapshot_page(mdata, page_base);
+  sp = get_snapshot_page(data, page_base);
   if (sp == NULL) {
 
     sp = kmalloc(sizeof(struct snapshot_page), GFP_KERNEL);
 
     sp->page_base = page_base;
     sp->page_data = NULL;
-    hash_add(mdata->ss.ss_page, &sp->next, sp->page_base);
+    hash_add(data->ss.ss_page, &sp->next, sp->page_base);
 
   }
 
@@ -451,7 +449,7 @@ struct snapshot_page *add_snapshot_page(struct mm_data *mdata,
 
 }
 
-void make_snapshot_page(struct vm_area_struct *vma, unsigned long addr) {
+void make_snapshot_page(struct task_data *data, struct vm_area_struct *vma, unsigned long addr) {
 
   pte_t *               pte;
   struct snapshot_page *sp;
@@ -467,7 +465,7 @@ void make_snapshot_page(struct vm_area_struct *vma, unsigned long addr) {
       "PageAnon: %d\n",
       addr, pte->pte, (unsigned long)page, page ? PageAnon(page) : 0);
 
-  sp = add_snapshot_page(ensure_mm_data(vma->vm_mm), addr);
+  sp = add_snapshot_page(data, addr);
 
   if (pte_none(*pte)) {
 
@@ -507,7 +505,7 @@ out:
 
 }
 
-void add_snapshot_vma(struct mm_data *mdata, unsigned long start,
+void add_snapshot_vma(struct task_data *data, unsigned long start,
                       unsigned long end) {
 
   struct snapshot_vma *ss_vma;
@@ -520,13 +518,13 @@ void add_snapshot_vma(struct mm_data *mdata, unsigned long start,
   ss_vma->vm_start = start;
   ss_vma->vm_end = end;
 
-  if (mdata->ss.ss_mmap == NULL) {
+  if (data->ss.ss_mmap == NULL) {
 
-    mdata->ss.ss_mmap = ss_vma;
+    data->ss.ss_mmap = ss_vma;
 
   } else {
 
-    p = mdata->ss.ss_mmap;
+    p = data->ss.ss_mmap;
     while (p->vm_next != NULL)
       p = p->vm_next;
 
@@ -549,26 +547,24 @@ inline bool is_stack(struct vm_area_struct *vma) {
 
 void do_memory_snapshot(bool add_vmas) {
 
-  struct task_struct *   tsk = current;
-  struct mm_struct *     mm = tsk->mm;
-  struct mm_data *       mdata = ensure_mm_data(mm);
-  struct vm_area_struct *pvma = mm->mmap;
+  struct task_data * data = ensure_task_data(current);
+  struct vm_area_struct *pvma = current->mm->mmap;
   unsigned long          addr;
 
   do {
 
     // temporarily store all the vmas
-    if (add_vmas) add_snapshot_vma(mdata, pvma->vm_start, pvma->vm_end);
+    if (add_vmas) add_snapshot_vma(data, pvma->vm_start, pvma->vm_end);
 
     // We only care about writable pages. Shared memory pages are skipped
-    if ((pvma->vm_flags & VM_WRITE) && !(pvma->vm_flags & VM_DONTCOPY)) {
+    if ((pvma->vm_flags & VM_WRITE) && !(pvma->vm_flags & VM_SHARED)) {
 
       DBG_PRINT("Make snapshot start: 0x%08lx end: 0x%08lx\n", pvma->vm_start,
                 pvma->vm_end);
 
       for (addr = pvma->vm_start; addr < pvma->vm_end; addr += PAGE_SIZE) {
 
-        make_snapshot_page(pvma, addr);
+        make_snapshot_page(data, pvma, addr);
 
       }
 
@@ -583,18 +579,18 @@ void do_memory_snapshot(bool add_vmas) {
 void do_files_snapshot(void) {
 
   struct files_struct *files = current->files;
-  struct files_data *  fdata = ensure_files_data(files);
+  struct task_data *   data = ensure_task_data(current);
   struct fdtable *     fdt = rcu_dereference_raw(files->fdt);
   int                  size, i;
 
   size = (fdt->max_fds - 1) / BITS_PER_LONG + 1;
 
-  if (fdata->snapshot_open_fds == NULL)
-    fdata->snapshot_open_fds =
+  if (data->snapshot_open_fds == NULL)
+    data->snapshot_open_fds =
         (unsigned long *)kmalloc(size * sizeof(unsigned long), GFP_ATOMIC);
 
   for (i = 0; i < size; i++)
-    fdata->snapshot_open_fds[i] = fdt->open_fds[i];
+    data->snapshot_open_fds[i] = fdt->open_fds[i];
 
 }
 
@@ -606,9 +602,9 @@ void recover_files_snapshot(void) {
    */
 
   struct files_struct *files = current->files;
-  struct files_data *  fdata = get_files_data(files);
+  struct task_data *  data = get_task_data(current);
 
-  if (!fdata) {
+  if (!data) {
 
     WARNF("Unable to find files_struct data in recover_files_snapshot");
     return;
@@ -624,7 +620,7 @@ void recover_files_snapshot(void) {
     i = j * BITS_PER_LONG;
     if (i >= fdt->max_fds) break;
     cur_set = fdt->open_fds[j];
-    old_set = fdata->snapshot_open_fds[j++];
+    old_set = data->snapshot_open_fds[j++];
     DBG_PRINT("cur_set: 0x%08lx old_set: 0x%08lx\n", cur_set, old_set);
     while (cur_set) {
 
@@ -655,59 +651,55 @@ void recover_files_snapshot(void) {
 void clean_files_snapshot(void) {
 
   struct files_struct *files = current->files;
-  struct files_data *  fdata = get_files_data(files);
+  struct task_data *   data = get_task_data(current);
 
-  if (!fdata) {
+  if (!data) {
 
     WARNF("Unable to find files_struct data in clean_files_snapshot");
     return;
 
   }
 
-  if (fdata->snapshot_open_fds != NULL) kfree(fdata->snapshot_open_fds);
-
-  remove_files_data(fdata);
-  kfree(fdata);
+  if (data->snapshot_open_fds != NULL) kfree(data->snapshot_open_fds);
 
 }
 
-struct mm_data * initialize_snapshot(void) {
+struct task_data * initialize_snapshot(void) {
 
-  struct mm_struct *mm = current->mm;
-  struct mm_data * mdata = ensure_mm_data(mm);
+  struct task_data * data = ensure_task_data(current);
   struct pt_regs *regs = task_pt_regs(current);
 
-  if (!had_snapshot(mdata)) {
+  if (!had_snapshot(data)) {
 
-    set_had_snapshot(mdata);
-    hash_init(mdata->ss.ss_page);
+    set_had_snapshot(data);
+    hash_init(data->ss.ss_page);
   
   }
 
-  set_snapshot(mdata);
-  // INIT_LIST_HEAD(&(mdata->ss.ss_mmap));
-  mdata->ss.ss_mmap = NULL;
+  set_snapshot(data);
+  // INIT_LIST_HEAD(&(data->ss.ss_mmap));
+  data->ss.ss_mmap = NULL;
 
   // copy current regs context
-  mdata->ss.regs = *regs;
+  data->ss.regs = *regs;
   
   // copy current brk
-  mdata->ss.oldbrk = mm->brk;
+  data->ss.oldbrk = current->mm->brk;
   
-  return mdata;
+  return data;
 
 }
 
-void recover_state(struct mm_data *mdata) {
+void recover_state(struct task_data *data) {
 
   struct pt_regs *regs = task_pt_regs(current);
 
   // restore regs context
-  *regs = mdata->ss.regs;
+  *regs = data->ss.regs;
 
   // restore brk
-  if (current->mm->brk > mdata->ss.oldbrk)
-    current->mm->brk = mdata->ss.oldbrk;
+  if (current->mm->brk > data->ss.oldbrk)
+    current->mm->brk = data->ss.oldbrk;
 
 }
 
@@ -725,7 +717,7 @@ int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
   struct vm_fault *vmf = (struct vm_fault *)regs->di;
 
   struct mm_struct *    mm = vmf->vma->vm_mm;
-  struct mm_data *      data = get_mm_data(mm);
+  struct task_data *    data = get_task_data(mm->owner);
   struct snapshot_page *ss_page = NULL;
   struct page *         old_page;
   pte_t                 entry;
@@ -808,7 +800,7 @@ int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs) {
   unsigned long          address = regs->dx;
 
   struct mm_struct *    mm = vma->vm_mm;
-  struct mm_data *      data = get_mm_data(mm);
+  struct task_data *      data = get_task_data(mm->owner);
   struct snapshot_page *ss_page = NULL;
 
   if (data && have_snapshot(data)) {
@@ -837,6 +829,14 @@ int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs) {
 
 }
 
+int exit_hook(struct kprobe *p, struct pt_regs *regs) {
+  
+  clean_snapshot();
+  
+  return 0;
+
+}
+
 /*
  * module-called funcs
  */
@@ -856,22 +856,23 @@ int snapshot_initialize_k_funcs() {
 
 void clean_snapshot(void) {
 
-  struct mm_data *data = get_mm_data(current->mm);
+  struct task_data *data = get_task_data(current);
   if (!data) { return; }
 
   clean_memory_snapshot(data);
   clean_snapshot_vmas(data);
   clean_files_snapshot();
   clear_snapshot(data);
-  kfree(data);
+
+  remove_task_data(data);
 
 }
 
-void restore_snapshot(struct mm_data *mdata) {
+void restore_snapshot(struct task_data *data) {
 
-  recover_memory_snapshot(mdata);
-  recover_state(mdata);
-  munmap_new_vmas(mdata);
+  recover_memory_snapshot(data);
+  recover_state(data);
+  munmap_new_vmas(data);
   recover_files_snapshot();
   
   do_memory_snapshot(false);
@@ -880,15 +881,15 @@ void restore_snapshot(struct mm_data *mdata) {
 
 int exit_snapshot(void) {
 
-  struct mm_data *mdata = get_mm_data(current->mm);
-  if (mdata && have_snapshot(mdata)) {
+  struct task_data *data = get_task_data(current);
+  if (data && have_snapshot(data)) {
 
-    restore_snapshot(mdata);
+    restore_snapshot(data);
     return 0;
 
   }
 
-  if (mdata && had_snapshot(mdata))
+  if (data && had_snapshot(data))
     clean_snapshot();
 
   return 1;
@@ -897,10 +898,10 @@ int exit_snapshot(void) {
 
 int do_snapshot(void) {
 
-  struct mm_data *mdata = ensure_mm_data(current->mm);
-  if (!have_snapshot(mdata)) { // first execution
+  struct task_data *data = ensure_task_data(current);
+  if (!have_snapshot(data)) { // first execution
 
-    mdata = initialize_snapshot();
+    data = initialize_snapshot();
     do_memory_snapshot(true);
     do_files_snapshot();
     
@@ -908,7 +909,7 @@ int do_snapshot(void) {
 
   }
 
-  restore_snapshot(mdata);
+  restore_snapshot(data);
   
   return 0;
 
