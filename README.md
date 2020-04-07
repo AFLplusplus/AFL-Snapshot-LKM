@@ -21,3 +21,9 @@ Just make.
 Load it using load.sh, unload it using unload.sh.
 
 While the module is loaded, AFL++ can detect it and automatically switch from fork() to snapshot mode.
+
+### TODOs
+
+ + switch from kprobe to ftrace for hooking
+ + implement pages blacklist/whitelist
+ + API for fine grained snapshotting (e.g. add a new VMA outside the whitelist)
