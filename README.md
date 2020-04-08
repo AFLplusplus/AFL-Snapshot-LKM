@@ -27,3 +27,4 @@ While the module is loaded, AFL++ can detect it and automatically switch from fo
  + switch from kprobe to ftrace for hooking
  + implement pages blacklist/whitelist
  + API for fine grained snapshotting (e.g. add a new VMA outside the whitelist)
+ + support for multithreaded applications
