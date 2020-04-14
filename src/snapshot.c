@@ -369,12 +369,10 @@ void clean_memory_snapshot(struct task_data *data) {
 
 }
 
-void make_snapshot_page(struct task_data *data, struct vm_area_struct *vma, unsigned long addr);
-
 void recover_memory_snapshot(struct task_data *data) {
 
-  struct vm_area_struct *pvma = current->mm->mmap;
   struct snapshot_page *sp, *prev_sp = NULL;
+  struct mm_struct *mm = data->tsk->mm;
   pte_t *               pte, entry;
   int                   i;
 
@@ -383,23 +381,33 @@ void recover_memory_snapshot(struct task_data *data) {
     if (sp->dirty && sp->has_been_copied) { // it has been captured by page fault
       
       do_recover_page(sp);
-      
-    } else if (is_snapshot_page_private(sp)) { // private page that has not been captured/ 
+      sp->has_had_pte = true;
       
       pte = walk_page_table(sp->page_base);
       if (pte) {
 
-        entry = pte_mkwrite(*pte);
-        set_pte_at(data->tsk->mm, sp->page_base, pte, entry);
-        // ghost
-        // __flush_tlb_one(sp->page_base & PAGE_MASK);
+        /* Private rw page */
+        DBG_PRINT("private writable addr: 0x%08lx\n", sp->page_base);
+        ptep_set_wrprotect(mm, sp->page_base, pte);
+        set_snapshot_page_private(sp);
+
+        /* flush tlb to make the pte change effective */
+        k_flush_tlb_mm_range(mm, sp->page_base, sp->page_base + PAGE_SIZE,
+                             PAGE_SHIFT, false);
+        DBG_PRINT("writable now: %d\n", pte_write(*pte));
+
+        pte_unmap(pte);
 
       }
       
+    } else if (is_snapshot_page_private(sp)) {
+      // private page that has not been captured
+      // still write protected
     } else if (is_snapshot_page_none_pte(sp) && sp->has_had_pte) {
 
       do_recover_none_pte(sp);
       
+      set_snapshot_page_none_pte(sp);
       sp->has_had_pte = false;
 
     }
@@ -413,10 +421,8 @@ struct snapshot_page *get_snapshot_page(struct task_data *data,
 
   struct snapshot_page *sp;
 
-  // printk("in is_snapshot_page");
   hash_for_each_possible(data->ss.ss_page, sp, next, page_base) {
 
-    // printk("try hash page: 0x%08lx\n", sp->page_base);
     if (sp->page_base == page_base) return sp;
 
   }
@@ -426,7 +432,7 @@ struct snapshot_page *get_snapshot_page(struct task_data *data,
 }
 
 struct snapshot_page *add_snapshot_page(struct task_data *data,
-                                        unsigned long   page_base) {
+                                        unsigned long page_base) {
 
   struct snapshot_page *sp;
 
@@ -449,7 +455,7 @@ struct snapshot_page *add_snapshot_page(struct task_data *data,
 
 }
 
-void make_snapshot_page(struct task_data *data, struct vm_area_struct *vma, unsigned long addr) {
+void make_snapshot_page(struct task_data *data, struct mm_struct *mm, unsigned long addr) {
 
   pte_t *               pte;
   struct snapshot_page *sp;
@@ -480,11 +486,11 @@ void make_snapshot_page(struct task_data *data, struct vm_area_struct *vma, unsi
 
       /* Private rw page */
       DBG_PRINT("private writable addr: 0x%08lx\n", addr);
-      ptep_set_wrprotect(vma->vm_mm, addr, pte);
+      ptep_set_wrprotect(mm, addr, pte);
       set_snapshot_page_private(sp);
 
       /* flush tlb to make the pte change effective */
-      k_flush_tlb_mm_range(vma->vm_mm, addr & PAGE_MASK,
+      k_flush_tlb_mm_range(mm, addr & PAGE_MASK,
                            (addr & PAGE_MASK) + PAGE_SIZE, PAGE_SHIFT, false);
       DBG_PRINT("writable now: %d\n", pte_write(*pte));
 
@@ -545,7 +551,7 @@ inline bool is_stack(struct vm_area_struct *vma) {
 }
 */
 
-void do_memory_snapshot(bool add_vmas) {
+void do_memory_snapshot(void) {
 
   struct task_data * data = ensure_task_data(current);
   struct vm_area_struct *pvma = current->mm->mmap;
@@ -554,7 +560,7 @@ void do_memory_snapshot(bool add_vmas) {
   do {
 
     // temporarily store all the vmas
-    if (add_vmas) add_snapshot_vma(data, pvma->vm_start, pvma->vm_end);
+    add_snapshot_vma(data, pvma->vm_start, pvma->vm_end);
 
     // We only care about writable pages. Shared memory pages are skipped
     if ((pvma->vm_flags & VM_WRITE) && !(pvma->vm_flags & VM_SHARED)) {
@@ -564,7 +570,7 @@ void do_memory_snapshot(bool add_vmas) {
 
       for (addr = pvma->vm_start; addr < pvma->vm_end; addr += PAGE_SIZE) {
 
-        make_snapshot_page(data, pvma, addr);
+        make_snapshot_page(data, pvma->vm_mm, addr);
 
       }
 
@@ -875,8 +881,6 @@ void restore_snapshot(struct task_data *data) {
   munmap_new_vmas(data);
   recover_files_snapshot();
   
-  do_memory_snapshot(false);
-  
 }
 
 int exit_snapshot(void) {
@@ -902,7 +906,7 @@ int do_snapshot(void) {
   if (!have_snapshot(data)) { // first execution
 
     data = initialize_snapshot();
-    do_memory_snapshot(true);
+    do_memory_snapshot();
     do_files_snapshot();
     
     return 1;
