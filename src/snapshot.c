@@ -304,7 +304,8 @@ void do_recover_page(struct snapshot_page *sp) {
       (unsigned long)sp->page_data, (unsigned long)sp->page_base,
       sp->page_prot);
 
-  copy_to_user((void __user *)sp->page_base, sp->page_data, PAGE_SIZE);
+  if (copy_to_user((void __user *)sp->page_base, sp->page_data, PAGE_SIZE) != 0)
+    DBG_PRINT("incomplete copy_to_user\n");
   sp->dirty = false;
 
 }
@@ -789,7 +790,7 @@ int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
     pte_unmap_unlock(vmf->pte, vmf->ptl);
 
     // skip original function
-    regs->ip = &return_0_stub_func;
+    regs->ip = (long unsigned int) &return_0_stub_func;
     return 1;
 
   }
@@ -849,8 +850,8 @@ int exit_hook(struct kprobe *p, struct pt_regs *regs) {
 
 int snapshot_initialize_k_funcs() {
 
-  k_flush_tlb_mm_range = kallsyms_lookup_name("flush_tlb_mm_range");
-  k_zap_page_range = kallsyms_lookup_name("zap_page_range");
+  k_flush_tlb_mm_range = (void *)kallsyms_lookup_name("flush_tlb_mm_range");
+  k_zap_page_range = (void *)kallsyms_lookup_name("zap_page_range");
 
   if (!k_flush_tlb_mm_range || !k_zap_page_range) { return -ENOENT; }
 
