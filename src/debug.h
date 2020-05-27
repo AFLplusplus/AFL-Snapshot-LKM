@@ -32,7 +32,7 @@
                                                                       \
   } while (0)
 
-#define WARNF(x...) pr_warning("[AFL++] WARNING: " x)
+#define WARNF(x...) pr_warn("[AFL++] WARNING: " x)
 
 #define SAYF(x...) pr_info("[AFL++] SAY: " x)
 
