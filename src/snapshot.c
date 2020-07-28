@@ -80,10 +80,14 @@ int take_snapshot(int config) {
 
 void recover_state(struct task_data *data) {
 
-  struct pt_regs *regs = task_pt_regs(current);
+  if (data->config & AFL_SNAPSHOT_REGS) {
 
-  // restore regs context
-  *regs = data->ss.regs;
+    struct pt_regs *regs = task_pt_regs(current);
+
+    // restore regs context
+    *regs = data->ss.regs;
+  
+  }
   
   // restore brk
   if (current->mm->brk > data->ss.oldbrk)
@@ -109,7 +113,7 @@ void recover_snapshot(void) {
 int exit_snapshot(void) {
 
   struct task_data *data = get_task_data(current);
-  if (data && !(data->config & AFL_SNAPSHOT_EXIT) && have_snapshot(data)) {
+  if (data && (data->config & AFL_SNAPSHOT_EXIT) && have_snapshot(data)) {
 
     restore_snapshot(data);
     return 0;

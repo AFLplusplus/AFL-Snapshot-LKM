@@ -108,11 +108,15 @@ out:
 
 }
 
+// TODO lock thee lists
+
 void exclude_vmrange(unsigned long start, unsigned long end) {
 
   struct task_data * data = ensure_task_data(current);
   
   struct vmrange_node * n = kmalloc(sizeof(struct vmrange_node), GFP_KERNEL);
+  n->start = start;
+  n->end = end;
   n->next = data->blocklist;
   data->blocklist = n;
 
@@ -123,6 +127,8 @@ void include_vmrange(unsigned long start, unsigned long end) {
   struct task_data * data = ensure_task_data(current);
   
   struct vmrange_node * n = kmalloc(sizeof(struct vmrange_node), GFP_KERNEL);
+  n->start = start;
+  n->end = end;
   n->next = data->allowlist;
   data->allowlist = n;
 
@@ -134,7 +140,7 @@ int intersect_blocklist(unsigned long start, unsigned long end) {
 
   struct vmrange_node * n = data->blocklist;
   while (n) {
-    if (start <= n->end && end >= n->start)
+    if (end > n->start && start < n->end)
       return 1;
     n = n->next;
   }
@@ -149,7 +155,7 @@ int intersect_allowlist(unsigned long start, unsigned long end) {
 
   struct vmrange_node * n = data->allowlist;
   while (n) {
-    if (start <= n->end && end >= n->start)
+    if (end > n->start && start < n->end)
       return 1;
     n = n->next;
   }
@@ -283,14 +289,12 @@ out:
 
 }
 
-/*
 inline bool is_stack(struct vm_area_struct *vma) {
 
   return vma->vm_start <= vma->vm_mm->start_stack &&
          vma->vm_end >= vma->vm_mm->start_stack;
 
 }
-*/
 
 void take_memory_snapshot(struct task_data * data) {
 
@@ -302,6 +306,17 @@ void take_memory_snapshot(struct task_data * data) {
   get_cpu_var(last_data) = NULL;
   put_cpu_var(last_data);
 
+  struct vmrange_node * n = data->allowlist;
+  while (n) {
+     DBG_PRINT("Allowlist: 0x%08lx - 0x%08lx\n", n->start, n->end);
+    n = n->next;
+  }
+  n = data->blocklist;
+  while (n) {
+     DBG_PRINT("Blocklist: 0x%08lx - 0x%08lx\n", n->start, n->end);
+    n = n->next;
+  }
+
   do {
 
     // temporarily store all the vmas
@@ -309,7 +324,10 @@ void take_memory_snapshot(struct task_data * data) {
       add_snapshot_vma(data, pvma->vm_start, pvma->vm_end);
 
     // We only care about writable pages. Shared memory pages are skipped
-    if (((pvma->vm_flags & VM_WRITE) && !(pvma->vm_flags & VM_SHARED)) ||
+    // if notsack is specified, skip if this this the stack
+    // Otherwise, look into the allowlist
+    if (((pvma->vm_flags & VM_WRITE) && !(pvma->vm_flags & VM_SHARED) &&
+        !((data->config & AFL_SNAPSHOT_NOSTACK) && is_stack(pvma))) ||
         intersect_allowlist(pvma->vm_start, pvma->vm_end)) {
 
       DBG_PRINT("Make snapshot start: 0x%08lx end: 0x%08lx\n", pvma->vm_start,
@@ -319,7 +337,8 @@ void take_memory_snapshot(struct task_data * data) {
 
         if (intersect_blocklist(addr, addr + PAGE_SIZE))
           continue;
-        if ((data->config & AFL_SNAPSHOT_BLOCK) &&
+        if (((data->config & AFL_SNAPSHOT_BLOCK) ||
+            ((data->config & AFL_SNAPSHOT_NOSTACK) && is_stack(pvma))) &&
             !intersect_allowlist(addr, addr + PAGE_SIZE))
           continue;
 

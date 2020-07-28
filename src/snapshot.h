@@ -97,6 +97,7 @@
 
 struct task_data;
 
+// TODO lock VMA restore
 struct snapshot_vma {
 
   unsigned long        vm_start;
@@ -176,7 +177,7 @@ struct snapshot {
 
 #define SNAPSHOT_NONE 0x00000000  // outside snapshot
 #define SNAPSHOT_MADE 0x00000001  // in snapshot
-#define SNAPSHOT_HAD  0x00000002   // once had snapshot
+#define SNAPSHOT_HAD  0x00000002  // once had snapshot
 
 extern void (*k_flush_tlb_mm_range)(struct mm_struct *mm, unsigned long start,
                              unsigned long end, unsigned int stride_shift,

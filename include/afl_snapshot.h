@@ -13,11 +13,22 @@
 #define AFL_SNAPSHOT_IOCTL_RESTORE   _IO(AFL_SNAPSHOT_IOCTL_MAGIC, 4)
 #define AFL_SNAPSHOT_IOCTL_CLEAN     _IO(AFL_SNAPSHOT_IOCTL_MAGIC, 5)
 
+// Trace new mmaped ares and unmap them on restore.
 #define AFL_SNAPSHOT_MMAP  1
+// Do not snapshot any page (by default all writeable not-shared pages
+// are shanpshotted.
 #define AFL_SNAPSHOT_BLOCK 2
-#define AFL_SNAPSHOT_COW   4
-#define AFL_SNAPSHOT_FDS   8
+// Snapshot file descriptor state, close newly opened descriptors
+#define AFL_SNAPSHOT_FDS   4
+// Snapshot registers state
+#define AFL_SNAPSHOT_REGS  8
+// Perform a restore when exit_group is invoked
 #define AFL_SNAPSHOT_EXIT  16
+// TODO(andrea) allow not COW snapshots (high perf on small processes)
+// Disable COW, restore all the snapshotted pages
+#define AFL_SNAPSHOT_NOCOW 32
+// Do not snapshot Stack pages
+#define AFL_SNAPSHOT_NOSTACK 64
 
 struct afl_snapshot_vmrange_args {
 

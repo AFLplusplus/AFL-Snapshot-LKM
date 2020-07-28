@@ -25,8 +25,8 @@ struct task_data {
   struct vmrange_node *allowlist, *blocklist;
   int config;
 
-  // list helper
-  struct list_head l;
+  struct list_head list;
+  struct rcu_head rcu;
 
 };
 

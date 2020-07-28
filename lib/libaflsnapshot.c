@@ -13,16 +13,16 @@ int afl_snapshot_init() {
 
 }
 
-void afl_snapshot_exclude_vmrange(unsigned long start, unsigned long end) {
+void afl_snapshot_exclude_vmrange(void* start, void* end) {
 
-  struct afl_snapshot_vmrange_args args = {start, end};
+  struct afl_snapshot_vmrange_args args = {(unsigned long)start, (unsigned long)end};
   ioctl(dev_fd, AFL_SNAPSHOT_EXCLUDE_VMRANGE, &args);
 
 }
 
-void afl_snapshot_include_vmrange(unsigned long start, unsigned long end) {
+void afl_snapshot_include_vmrange(void* start, void* end) {
 
-  struct afl_snapshot_vmrange_args args = {start, end};
+  struct afl_snapshot_vmrange_args args = {(unsigned long)start, (unsigned long)end};
   ioctl(dev_fd, AFL_SNAPSHOT_INCLUDE_VMRANGE, &args);
 
 }
