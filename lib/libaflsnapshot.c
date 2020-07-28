@@ -33,6 +33,12 @@ int afl_snapshot_take(int config) {
 
 }
 
+int afl_snapshot_do(void) {
+
+  return ioctl(dev_fd, AFL_SNAPSHOT_IOCTL_DO);
+
+}
+
 void afl_snapshot_restore(void) {
 
   ioctl(dev_fd, AFL_SNAPSHOT_IOCTL_RESTORE);

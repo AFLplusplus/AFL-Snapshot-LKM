@@ -78,6 +78,14 @@ long mod_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 
     }
     
+    case AFL_SNAPSHOT_IOCTL_DO: {
+    
+      DBG_PRINT("Calling afl_snapshot_do");
+
+      return take_snapshot(AFL_SNAPSHOT_MMAP | AFL_SNAPSHOT_FDS | AFL_SNAPSHOT_REGS | AFL_SNAPSHOT_EXIT);
+
+    }
+    
     case AFL_SNAPSHOT_IOCTL_RESTORE: {
     
       DBG_PRINT("Calling afl_snapshot_restore");
