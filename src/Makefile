@@ -3,7 +3,7 @@ override M = $(PWD)
 endif
 
 obj-m += afl_snapshot.o
-afl_snapshot-objs := memory.o task_data.o snapshot.o hook.o module.o
+afl_snapshot-objs := memory.o files.o task_data.o snapshot.o hook.o module.o
 
 ccflags-y := \
   -ggdb3 \

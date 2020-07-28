@@ -189,6 +189,10 @@ void take_memory_snapshot(struct task_data * data);
 void recover_memory_snapshot(struct task_data *data);
 void clean_memory_snapshot(struct task_data *data);
 
+void take_files_snapshot(struct task_data * data);
+void recover_files_snapshot(struct task_data * data);
+void clean_files_snapshot(struct task_data * data);
+
 int snapshot_initialize_k_funcs(void);
 
 int wp_page_hook(struct kprobe *p, struct pt_regs *regs);

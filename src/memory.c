@@ -3,6 +3,9 @@
 #include "task_data.h"
 #include "snapshot.h"
 
+static DEFINE_PER_CPU(struct task_struct*, last_task) = NULL;
+static DEFINE_PER_CPU(struct task_data*, last_data) = NULL;
+
 pmd_t *get_page_pmd(unsigned long addr) {
 
   pgd_t *pgd;
@@ -294,6 +297,11 @@ void take_memory_snapshot(struct task_data * data) {
   struct vm_area_struct *pvma = current->mm->mmap;
   unsigned long addr;
 
+  get_cpu_var(last_task) = NULL;
+  put_cpu_var(last_task);
+  get_cpu_var(last_data) = NULL;
+  put_cpu_var(last_data);
+
   do {
 
     // temporarily store all the vmas
@@ -515,6 +523,13 @@ void clean_memory_snapshot(struct task_data *data) {
   struct snapshot_page *sp;
   int i;
 
+  if (get_cpu_var(last_task) == current) {
+    get_cpu_var(last_task) = NULL;
+    get_cpu_var(last_data) = NULL;
+  }
+  put_cpu_var(last_task);
+  put_cpu_var(last_data);
+
   if (data->config & AFL_SNAPSHOT_MMAP)
     clean_snapshot_vmas(data);
 
@@ -528,17 +543,11 @@ void clean_memory_snapshot(struct task_data *data) {
 
 }
 
-/*
- * hooks
- */
 static long return_0_stub_func(void) {
 
   return 0;
 
 }
-
-static DEFINE_PER_CPU(struct task_struct*, last_task);
-static DEFINE_PER_CPU(struct task_data*, last_data);
 
 int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
 
@@ -554,16 +563,18 @@ int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
   mm = vmf->vma->vm_mm;
   ss_page = NULL;
   
-  if (last_task == mm->owner) {
+  if (get_cpu_var(last_task) == mm->owner) {
     // fast path
-    data = last_data;
+    data = get_cpu_var(last_data);
   } else {
     // query the radix tree
     data = get_task_data(mm->owner);
-    last_task = mm->owner;
-    last_data = data;
+    get_cpu_var(last_task) = mm->owner;
+    get_cpu_var(last_data) = data;
   }
-
+  put_cpu_var(last_task);
+  put_cpu_var(last_data); // not needed?
+  
   if (data && have_snapshot(data)) {
 
     ss_page = get_snapshot_page(data, vmf->address & PAGE_MASK);
@@ -648,15 +659,17 @@ int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs) {
   mm = vma->vm_mm;
   ss_page = NULL;
   
-  if (last_task == mm->owner) {
+  if (get_cpu_var(last_task) == mm->owner) {
     // fast path
-    data = last_data;
+    data = get_cpu_var(last_data);
   } else {
     // query the radix tree
     data = get_task_data(mm->owner);
-    last_task = mm->owner;
-    last_data = data;
+    get_cpu_var(last_task) = mm->owner;
+    get_cpu_var(last_data) = data;
   }
+  put_cpu_var(last_task);
+  put_cpu_var(last_data); // not needed?
 
   if (data && have_snapshot(data)) {
 
