@@ -5,6 +5,15 @@
 #include <linux/list.h>
 #include <linux/sched.h>
 
+struct vmrange_node {
+
+  unsigned long start;
+  unsigned long end;
+  
+  struct vmrange_node* next;
+
+};
+
 struct task_data {
 
   // what task_struct is this for?
@@ -12,9 +21,12 @@ struct task_data {
 
   struct snapshot ss;
   unsigned long *snapshot_open_fds;
+  
+  struct vmrange_node *allowlist, *blocklist;
+  int config;
 
-  // list helper
-  struct list_head l;
+  struct list_head list;
+  struct rcu_head rcu;
 
 };
 

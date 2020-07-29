@@ -44,17 +44,60 @@ long mod_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 
   switch (cmd) {
   
+    case AFL_SNAPSHOT_EXCLUDE_VMRANGE: {
+    
+      DBG_PRINT("Calling afl_snapshot_exclude_vmrange");
+
+      struct afl_snapshot_vmrange_args args;
+      if (copy_from_user(&args, (void *)arg, sizeof(struct afl_snapshot_vmrange_args)))
+        return -EINVAL;
+
+      exclude_vmrange(args.start, args.end);
+      return 0;
+
+    }
+    
+    case AFL_SNAPSHOT_INCLUDE_VMRANGE: {
+    
+      DBG_PRINT("Calling afl_snapshot_include_vmrange");
+
+      struct afl_snapshot_vmrange_args args;
+      if (copy_from_user(&args, (void *)arg, sizeof(struct afl_snapshot_vmrange_args)))
+        return -EINVAL;
+
+      include_vmrange(args.start, args.end);
+      return 0;
+
+    }
+    
+    case AFL_SNAPSHOT_IOCTL_TAKE: {
+    
+      DBG_PRINT("Calling afl_snapshot_take");
+
+      return take_snapshot(arg);
+
+    }
+    
     case AFL_SNAPSHOT_IOCTL_DO: {
     
-      DBG_PRINT("Calling do_snapshot");
+      DBG_PRINT("Calling afl_snapshot_do");
 
-      return do_snapshot();
+      return take_snapshot(AFL_SNAPSHOT_MMAP | AFL_SNAPSHOT_FDS | AFL_SNAPSHOT_REGS | AFL_SNAPSHOT_EXIT);
+
+    }
+    
+    case AFL_SNAPSHOT_IOCTL_RESTORE: {
+    
+      DBG_PRINT("Calling afl_snapshot_restore");
+
+      recover_snapshot();
+      return 0;
 
     }
 
     case AFL_SNAPSHOT_IOCTL_CLEAN: {
     
-      DBG_PRINT("Calling clean_snapshot");
+      DBG_PRINT("Calling afl_snapshot_clean");
 
       clean_snapshot();
       return 0;
