@@ -12,8 +12,19 @@ fork() is slow and we want to fuzz faster.
 The speed gain currently varies between 1-20% depending on the taget, but
 this is WIP to be faster.
 
-If your application is stateful, persistent mode in llvm_mode will give you
-a better performance though.
+Persistent mode in llvm_mode will give you a better performance bump though,
+however adding this snapshot module will still be a small improvement.
+
+## Speed comparison
+
+|project|program|exec/s with snapshot|exec/s normal|speed factor|
+|+-----+|+-----+|+------+|+-----+|+----------+|
+|afl++|test-instr|25k|8234k|x3|
+|unrar|unrar|7044|1938|x3.6|
+|jpeg|djpeg|1911|1502|x1.3|
+|tiff|thumbnail|5058|3114|x1.6|
+|libxml|xmllint|7835|3450|x2.3|
+|afl++|test_persistent_new|106k|89k|x1.2|
 
 ## Build
 
@@ -25,7 +36,7 @@ Load it using `./load.sh`, unload it using `./unload.sh`.
 
 While the module is loaded, [AFL++](https://github.com/AFLplusplus/AFLplusplus)
 will detect it and automatically switch from fork() to snapshot mode.
-(Note: currently llvm_mode only, available from v2.63c onwards)
+(Note: currently llvm_mode only, available from v2.68c onwards)
 
 ## API
 
