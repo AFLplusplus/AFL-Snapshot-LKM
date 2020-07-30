@@ -108,9 +108,7 @@ struct snapshot_vma {
 
 struct snapshot_thread {
 
-  struct task_struct* tsk;
-  
-  
+  struct task_struct *tsk;
 
 };
 
@@ -128,8 +126,8 @@ struct snapshot_page {
 
 };
 
-#define SNAPSHOT_PRIVATE  0x00000001
-#define SNAPSHOT_COW      0x00000002
+#define SNAPSHOT_PRIVATE 0x00000001
+#define SNAPSHOT_COW 0x00000002
 #define SNAPSHOT_NONE_PTE 0x00000010
 
 static inline bool is_snapshot_page_none_pte(struct snapshot_page *sp) {
@@ -175,8 +173,8 @@ struct snapshot {
   unsigned int  status;
   unsigned long oldbrk;
 
-  struct snapshot_vma * ss_mmap;
-  
+  struct snapshot_vma *ss_mmap;
+
   struct pt_regs regs;
 
   DECLARE_HASHTABLE(ss_page, SNAPSHOT_HASHTABLE_SZ);
@@ -185,24 +183,25 @@ struct snapshot {
 
 #define SNAPSHOT_NONE 0x00000000  // outside snapshot
 #define SNAPSHOT_MADE 0x00000001  // in snapshot
-#define SNAPSHOT_HAD  0x00000002  // once had snapshot
+#define SNAPSHOT_HAD 0x00000002   // once had snapshot
 
 extern void (*k_flush_tlb_mm_range)(struct mm_struct *mm, unsigned long start,
-                             unsigned long end, unsigned int stride_shift,
-                             bool freed_tables);
+                                    unsigned long end,
+                                    unsigned int  stride_shift,
+                                    bool          freed_tables);
 
 extern void (*k_zap_page_range)(struct vm_area_struct *vma, unsigned long start,
-                         unsigned long size);
+                                unsigned long size);
 
-void take_memory_snapshot(struct task_data * data);
+void take_memory_snapshot(struct task_data *data);
 void recover_memory_snapshot(struct task_data *data);
 void clean_memory_snapshot(struct task_data *data);
 
-void take_files_snapshot(struct task_data * data);
-void recover_files_snapshot(struct task_data * data);
-void clean_files_snapshot(struct task_data * data);
+void take_files_snapshot(struct task_data *data);
+void recover_files_snapshot(struct task_data *data);
+void clean_files_snapshot(struct task_data *data);
 
-void recover_threads_snapshot(struct task_data * data);
+void recover_threads_snapshot(struct task_data *data);
 
 int snapshot_initialize_k_funcs(void);
 
@@ -210,10 +209,10 @@ int wp_page_hook(struct kprobe *p, struct pt_regs *regs);
 int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs);
 int exit_hook(struct kprobe *p, struct pt_regs *regs);
 
-int take_snapshot(int config);
+int  take_snapshot(int config);
 void recover_snapshot(void);
 void clean_snapshot(void);
-int exit_snapshot(void);
+int  exit_snapshot(void);
 
 void exclude_vmrange(unsigned long start, unsigned long end);
 void include_vmrange(unsigned long start, unsigned long end);

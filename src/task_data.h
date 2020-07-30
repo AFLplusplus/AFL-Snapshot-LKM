@@ -9,8 +9,8 @@ struct vmrange_node {
 
   unsigned long start;
   unsigned long end;
-  
-  struct vmrange_node* next;
+
+  struct vmrange_node *next;
 
 };
 
@@ -20,13 +20,13 @@ struct task_data {
   const struct task_struct *tsk;
 
   struct snapshot ss;
-  unsigned long *snapshot_open_fds;
-  
+  unsigned long * snapshot_open_fds;
+
   struct vmrange_node *allowlist, *blocklist;
-  int config;
+  int                  config;
 
   struct list_head list;
-  struct rcu_head rcu;
+  struct rcu_head  rcu;
 
 };
 
@@ -65,3 +65,4 @@ static inline bool had_snapshot(struct task_data *data) {
 }
 
 #endif
+

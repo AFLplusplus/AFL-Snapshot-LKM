@@ -3,8 +3,8 @@
 #include "task_data.h"
 #include "snapshot.h"
 
-static DEFINE_PER_CPU(struct task_struct*, last_task) = NULL;
-static DEFINE_PER_CPU(struct task_data*, last_data) = NULL;
+static DEFINE_PER_CPU(struct task_struct *, last_task) = NULL;
+static DEFINE_PER_CPU(struct task_data *, last_data) = NULL;
 
 pmd_t *get_page_pmd(unsigned long addr) {
 
@@ -112,9 +112,9 @@ out:
 
 void exclude_vmrange(unsigned long start, unsigned long end) {
 
-  struct task_data * data = ensure_task_data(current);
-  
-  struct vmrange_node * n = kmalloc(sizeof(struct vmrange_node), GFP_KERNEL);
+  struct task_data *data = ensure_task_data(current);
+
+  struct vmrange_node *n = kmalloc(sizeof(struct vmrange_node), GFP_KERNEL);
   n->start = start;
   n->end = end;
   n->next = data->blocklist;
@@ -124,9 +124,9 @@ void exclude_vmrange(unsigned long start, unsigned long end) {
 
 void include_vmrange(unsigned long start, unsigned long end) {
 
-  struct task_data * data = ensure_task_data(current);
-  
-  struct vmrange_node * n = kmalloc(sizeof(struct vmrange_node), GFP_KERNEL);
+  struct task_data *data = ensure_task_data(current);
+
+  struct vmrange_node *n = kmalloc(sizeof(struct vmrange_node), GFP_KERNEL);
   n->start = start;
   n->end = end;
   n->next = data->allowlist;
@@ -136,13 +136,14 @@ void include_vmrange(unsigned long start, unsigned long end) {
 
 int intersect_blocklist(unsigned long start, unsigned long end) {
 
-  struct task_data * data = ensure_task_data(current);
+  struct task_data *data = ensure_task_data(current);
 
-  struct vmrange_node * n = data->blocklist;
+  struct vmrange_node *n = data->blocklist;
   while (n) {
-    if (end > n->start && start < n->end)
-      return 1;
+
+    if (end > n->start && start < n->end) return 1;
     n = n->next;
+
   }
 
   return 0;
@@ -151,13 +152,14 @@ int intersect_blocklist(unsigned long start, unsigned long end) {
 
 int intersect_allowlist(unsigned long start, unsigned long end) {
 
-  struct task_data * data = ensure_task_data(current);
+  struct task_data *data = ensure_task_data(current);
 
-  struct vmrange_node * n = data->allowlist;
+  struct vmrange_node *n = data->allowlist;
   while (n) {
-    if (end > n->start && start < n->end)
-      return 1;
+
+    if (end > n->start && start < n->end) return 1;
     n = n->next;
+
   }
 
   return 0;
@@ -195,7 +197,7 @@ void add_snapshot_vma(struct task_data *data, unsigned long start,
 }
 
 struct snapshot_page *get_snapshot_page(struct task_data *data,
-                                        unsigned long   page_base) {
+                                        unsigned long     page_base) {
 
   struct snapshot_page *sp;
 
@@ -210,7 +212,7 @@ struct snapshot_page *get_snapshot_page(struct task_data *data,
 }
 
 struct snapshot_page *add_snapshot_page(struct task_data *data,
-                                        unsigned long page_base) {
+                                        unsigned long     page_base) {
 
   struct snapshot_page *sp;
 
@@ -233,7 +235,8 @@ struct snapshot_page *add_snapshot_page(struct task_data *data,
 
 }
 
-void make_snapshot_page(struct task_data *data, struct mm_struct *mm, unsigned long addr) {
+void make_snapshot_page(struct task_data *data, struct mm_struct *mm,
+                        unsigned long addr) {
 
   pte_t *               pte;
   struct snapshot_page *sp;
@@ -268,8 +271,8 @@ void make_snapshot_page(struct task_data *data, struct mm_struct *mm, unsigned l
       set_snapshot_page_private(sp);
 
       /* flush tlb to make the pte change effective */
-      k_flush_tlb_mm_range(mm, addr & PAGE_MASK,
-                           (addr & PAGE_MASK) + PAGE_SIZE, PAGE_SHIFT, false);
+      k_flush_tlb_mm_range(mm, addr & PAGE_MASK, (addr & PAGE_MASK) + PAGE_SIZE,
+                           PAGE_SHIFT, false);
       DBG_PRINT("writable now: %d\n", pte_write(*pte));
 
     } else {
@@ -296,25 +299,30 @@ inline bool is_stack(struct vm_area_struct *vma) {
 
 }
 
-void take_memory_snapshot(struct task_data * data) {
+void take_memory_snapshot(struct task_data *data) {
 
   struct vm_area_struct *pvma = current->mm->mmap;
-  unsigned long addr;
+  unsigned long          addr;
 
   get_cpu_var(last_task) = NULL;
   put_cpu_var(last_task);
   get_cpu_var(last_data) = NULL;
   put_cpu_var(last_data);
 
-  struct vmrange_node * n = data->allowlist;
+  struct vmrange_node *n = data->allowlist;
   while (n) {
-     DBG_PRINT("Allowlist: 0x%08lx - 0x%08lx\n", n->start, n->end);
+
+    DBG_PRINT("Allowlist: 0x%08lx - 0x%08lx\n", n->start, n->end);
     n = n->next;
+
   }
+
   n = data->blocklist;
   while (n) {
-     DBG_PRINT("Blocklist: 0x%08lx - 0x%08lx\n", n->start, n->end);
+
+    DBG_PRINT("Blocklist: 0x%08lx - 0x%08lx\n", n->start, n->end);
     n = n->next;
+
   }
 
   do {
@@ -327,7 +335,7 @@ void take_memory_snapshot(struct task_data * data) {
     // if notsack is specified, skip if this this the stack
     // Otherwise, look into the allowlist
     if (((pvma->vm_flags & VM_WRITE) && !(pvma->vm_flags & VM_SHARED) &&
-        !((data->config & AFL_SNAPSHOT_NOSTACK) && is_stack(pvma))) ||
+         !((data->config & AFL_SNAPSHOT_NOSTACK) && is_stack(pvma))) ||
         intersect_allowlist(pvma->vm_start, pvma->vm_end)) {
 
       DBG_PRINT("Make snapshot start: 0x%08lx end: 0x%08lx\n", pvma->vm_start,
@@ -335,10 +343,9 @@ void take_memory_snapshot(struct task_data * data) {
 
       for (addr = pvma->vm_start; addr < pvma->vm_end; addr += PAGE_SIZE) {
 
-        if (intersect_blocklist(addr, addr + PAGE_SIZE))
-          continue;
+        if (intersect_blocklist(addr, addr + PAGE_SIZE)) continue;
         if (((data->config & AFL_SNAPSHOT_BLOCK) ||
-            ((data->config & AFL_SNAPSHOT_NOSTACK) && is_stack(pvma))) &&
+             ((data->config & AFL_SNAPSHOT_NOSTACK) && is_stack(pvma))) &&
             !intersect_allowlist(addr, addr + PAGE_SIZE))
           continue;
 
@@ -472,20 +479,20 @@ void do_recover_none_pte(struct snapshot_page *sp) {
 void recover_memory_snapshot(struct task_data *data) {
 
   struct snapshot_page *sp, *prev_sp = NULL;
-  struct mm_struct *mm = data->tsk->mm;
-  pte_t * pte, entry;
-  int i;
+  struct mm_struct *    mm = data->tsk->mm;
+  pte_t *               pte, entry;
+  int                   i;
 
-  if (data->config & AFL_SNAPSHOT_MMAP)
-    munmap_new_vmas(data);
+  if (data->config & AFL_SNAPSHOT_MMAP) munmap_new_vmas(data);
 
   hash_for_each(data->ss.ss_page, i, sp, next) {
 
-    if (sp->dirty && sp->has_been_copied) { // it has been captured by page fault
-      
-      do_recover_page(sp); // copy old content
+    if (sp->dirty &&
+        sp->has_been_copied) {  // it has been captured by page fault
+
+      do_recover_page(sp);  // copy old content
       sp->has_had_pte = true;
-      
+
       pte = walk_page_table(sp->page_base);
       if (pte) {
 
@@ -502,19 +509,21 @@ void recover_memory_snapshot(struct task_data *data) {
         pte_unmap(pte);
 
       }
-      
+
     } else if (is_snapshot_page_private(sp)) {
+
       // private page that has not been captured
       // still write protected
+
     } else if (is_snapshot_page_none_pte(sp) && sp->has_had_pte) {
 
       do_recover_none_pte(sp);
-      
+
       set_snapshot_page_none_pte(sp);
       sp->has_had_pte = false;
 
     }
-    
+
   }
 
 }
@@ -540,17 +549,19 @@ void clean_snapshot_vmas(struct task_data *data) {
 void clean_memory_snapshot(struct task_data *data) {
 
   struct snapshot_page *sp;
-  int i;
+  int                   i;
 
   if (get_cpu_var(last_task) == current) {
+
     get_cpu_var(last_task) = NULL;
     get_cpu_var(last_data) = NULL;
+
   }
+
   put_cpu_var(last_task);
   put_cpu_var(last_data);
 
-  if (data->config & AFL_SNAPSHOT_MMAP)
-    clean_snapshot_vmas(data);
+  if (data->config & AFL_SNAPSHOT_MMAP) clean_snapshot_vmas(data);
 
   hash_for_each(data->ss.ss_page, i, sp, next) {
 
@@ -570,35 +581,42 @@ static long return_0_stub_func(void) {
 
 int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
 
-  struct vm_fault * vmf;
-  struct mm_struct * mm;
-  struct task_data * data;
+  struct vm_fault *     vmf;
+  struct mm_struct *    mm;
+  struct task_data *    data;
   struct snapshot_page *ss_page;
-  struct page * old_page;
-  pte_t entry;
-  char * vfrom;
-  
+  struct page *         old_page;
+  pte_t                 entry;
+  char *                vfrom;
+
   vmf = (struct vm_fault *)regs->di;
   mm = vmf->vma->vm_mm;
   ss_page = NULL;
-  
+
   if (get_cpu_var(last_task) == mm->owner) {
+
     // fast path
     data = get_cpu_var(last_data);
+
   } else {
+
     // query the radix tree
     data = get_task_data(mm->owner);
     get_cpu_var(last_task) = mm->owner;
     get_cpu_var(last_data) = data;
+
   }
+
   put_cpu_var(last_task);
-  put_cpu_var(last_data); // not needed?
-  
+  put_cpu_var(last_data);  // not needed?
+
   if (data && have_snapshot(data)) {
 
     ss_page = get_snapshot_page(data, vmf->address & PAGE_MASK);
 
-  } else return 0;  // continue
+  } else
+
+    return 0;  // continue
 
   if (!ss_page) {
 
@@ -606,11 +624,11 @@ int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
     return 0;  // continue
 
   }
-  
+
   if (ss_page->dirty) return 0;
-  
+
   ss_page->dirty = true;
-  
+
   DBG_PRINT("wp_page_hook 0x%08lx", vmf->address);
 
   /* the page has been copied?
@@ -639,7 +657,10 @@ int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
    */
   if (is_snapshot_page_private(ss_page)) {
 
-    DBG_PRINT("page fault! process: %s addr: 0x%08lx ptep: 0x%08lx pte: 0x%08lx", current->comm, vmf->address, (unsigned long)vmf->pte, vmf->orig_pte.pte);
+    DBG_PRINT(
+        "page fault! process: %s addr: 0x%08lx ptep: 0x%08lx pte: 0x%08lx",
+        current->comm, vmf->address, (unsigned long)vmf->pte,
+        vmf->orig_pte.pte);
 
     /* change the page prot back to ro from rw */
     entry = pte_mkwrite(vmf->orig_pte);
@@ -654,7 +675,7 @@ int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
     pte_unmap_unlock(vmf->pte, vmf->ptl);
 
     // skip original function
-    regs->ip = (long unsigned int) &return_0_stub_func;
+    regs->ip = (long unsigned int)&return_0_stub_func;
     return 1;
 
   }
@@ -668,27 +689,32 @@ int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
 int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs) {
 
   struct vm_area_struct *vma;
-  struct mm_struct * mm;
-  struct task_data * data;
-  struct snapshot_page *ss_page;
-  unsigned long address;
-  
+  struct mm_struct *     mm;
+  struct task_data *     data;
+  struct snapshot_page * ss_page;
+  unsigned long          address;
+
   vma = (struct vm_area_struct *)regs->si;
   address = regs->dx;
   mm = vma->vm_mm;
   ss_page = NULL;
-  
+
   if (get_cpu_var(last_task) == mm->owner) {
+
     // fast path
     data = get_cpu_var(last_data);
+
   } else {
+
     // query the radix tree
     data = get_task_data(mm->owner);
     get_cpu_var(last_task) = mm->owner;
     get_cpu_var(last_data) = data;
+
   }
+
   put_cpu_var(last_task);
-  put_cpu_var(last_data); // not needed?
+  put_cpu_var(last_data);  // not needed?
 
   if (data && have_snapshot(data)) {
 
