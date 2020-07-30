@@ -2,9 +2,11 @@
 
 A Linux Kernel Module that implements a fast snapshot mechanism for fuzzing.
 
-Based on https://github.com/sslab-gatech/perf-fuzz.
+Written and maintained by Andrea Fioraldi <andreafioraldi@gmail.com>.
 
-Written and maintained by Nick "kallsyms" Gregory and Andrea Fioraldi.
+First port to a LKM written by Nick "kallsyms" Gregory.
+
+Originally inspired by https://github.com/sslab-gatech/perf-fuzz.
 
 ## Why?
 
