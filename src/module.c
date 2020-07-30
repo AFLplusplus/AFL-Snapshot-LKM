@@ -16,6 +16,7 @@
 #include "hook.h"       // function hooking
 #include "snapshot.h"   // main implementation
 #include "debug.h"
+#include "symbols.h"
 
 #include "afl_snapshot.h"
 
@@ -26,6 +27,13 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("kallsyms & andreafioraldi");
 MODULE_DESCRIPTION("Fast process snapshots for fuzzing");
 MODULE_VERSION("1.0.0");
+
+void (*k_flush_tlb_mm_range)(struct mm_struct *mm, unsigned long start,
+                             unsigned long end, unsigned int stride_shift,
+                             bool freed_tables);
+
+void (*k_zap_page_range)(struct vm_area_struct *vma, unsigned long start,
+                         unsigned long size);
 
 int            mod_major_num;
 struct class * mod_class;
@@ -144,16 +152,16 @@ static void **get_syscall_table(void) {
 
   void **syscall_table = NULL;
 
-  syscall_table = kallsyms_lookup_name("sys_call_table");
+  syscall_table = (void**)SYMADDR_sys_call_table;
 
   if (syscall_table) { return syscall_table; }
 
   int                i;
-  unsigned long long s0 = kallsyms_lookup_name("__x64_sys_read");
-  unsigned long long s1 = kallsyms_lookup_name("__x64_sys_write");
+  unsigned long long s0 = SYMADDR___x64_sys_read;
+  unsigned long long s1 = SYMADDR___x64_sys_read;
 
   unsigned long long *data =
-      (unsigned long long *)((uint64_t)kallsyms_lookup_name("_etext") & ~0x7);
+      (unsigned long long *)(SYMADDR__etext & ~0x7);
   for (i = 0; (unsigned long long)(&data[i]) < ULLONG_MAX; i++) {
 
     unsigned long long d;
@@ -207,6 +215,19 @@ static void unpatch_syscall_table(void) {
   disable_write_protection();
   syscall_table_ptr[__NR_exit_group] = orig_sct_exit_group;
   enable_write_protection();
+
+}
+
+int snapshot_initialize_k_funcs() {
+
+  k_flush_tlb_mm_range = (void *)SYMADDR_flush_tlb_mm_range;
+  k_zap_page_range = (void *)SYMADDR_zap_page_range;
+
+  if (!k_flush_tlb_mm_range || !k_zap_page_range) { return -ENOENT; }
+
+  SAYF("All loaded");
+
+  return 0;
 
 }
 

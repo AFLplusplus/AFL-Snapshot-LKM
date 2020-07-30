@@ -27,13 +27,11 @@ however adding this snapshot module will still be a small improvement.
 |libxml|xmllint|7835|3450|x2.3|
 |afl++|test_persistent_new|106k|89k|x1.2|
 
-## Build
-
-Just `make`.
-
 ## Usage
 
 Load it using `./load.sh`, unload it using `./unload.sh`.
+
+`./load.sh` will compile the module for you, you need also python3.
 
 While the module is loaded, [AFL++](https://github.com/AFLplusplus/AFLplusplus)
 will detect it and automatically switch from fork() to snapshot mode.
