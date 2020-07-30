@@ -18,7 +18,7 @@ however adding this snapshot module will still be a small improvement.
 
 |project|program|exec/s with snapshot|exec/s normal|speed factor|
 |:-----:|:-----:|:------:|:-----:|:----------:|
-|afl++|test-instr|25k|8234k|x3|
+|afl++|test-instr|25k|8234|x3|
 |unrar|unrar|7044|1938|x3.6|
 |jpeg|djpeg|1911|1502|x1.3|
 |tiff|thumbnail|5058|3114|x1.6|
