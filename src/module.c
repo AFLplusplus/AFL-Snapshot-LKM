@@ -28,6 +28,13 @@ MODULE_AUTHOR("kallsyms & andreafioraldi");
 MODULE_DESCRIPTION("Fast process snapshots for fuzzing");
 MODULE_VERSION("1.0.0");
 
+void (*k_flush_tlb_mm_range)(struct mm_struct *mm, unsigned long start,
+                             unsigned long end, unsigned int stride_shift,
+                             bool freed_tables);
+
+void (*k_zap_page_range)(struct vm_area_struct *vma, unsigned long start,
+                         unsigned long size);
+
 int            mod_major_num;
 struct class * mod_class;
 struct device *mod_device;
@@ -208,6 +215,19 @@ static void unpatch_syscall_table(void) {
   disable_write_protection();
   syscall_table_ptr[__NR_exit_group] = orig_sct_exit_group;
   enable_write_protection();
+
+}
+
+int snapshot_initialize_k_funcs() {
+
+  k_flush_tlb_mm_range = (void *)SYMADDR_flush_tlb_mm_range;
+  k_zap_page_range = (void *)SYMADDR_zap_page_range;
+
+  if (!k_flush_tlb_mm_range || !k_zap_page_range) { return -ENOENT; }
+
+  SAYF("All loaded");
+
+  return 0;
 
 }
 

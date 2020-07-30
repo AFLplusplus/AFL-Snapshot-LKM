@@ -2,35 +2,10 @@
 #include "debug.h"
 #include "task_data.h"
 #include "snapshot.h"
-#include "symbols.h"
-
-void (*k_flush_tlb_mm_range)(struct mm_struct *mm, unsigned long start,
-                             unsigned long end, unsigned int stride_shift,
-                             bool freed_tables);
-
-void (*k_zap_page_range)(struct vm_area_struct *vma, unsigned long start,
-                         unsigned long size);
 
 int exit_hook(struct kprobe *p, struct pt_regs *regs) {
 
   clean_snapshot();
-
-  return 0;
-
-}
-
-/*
- * module-called funcs
- */
-
-int snapshot_initialize_k_funcs() {
-
-  k_flush_tlb_mm_range = (void *)SYMADDR_flush_tlb_mm_range;
-  k_zap_page_range = (void *)SYMADDR_zap_page_range;
-
-  if (!k_flush_tlb_mm_range || !k_zap_page_range) { return -ENOENT; }
-
-  SAYF("All loaded");
 
   return 0;
 
