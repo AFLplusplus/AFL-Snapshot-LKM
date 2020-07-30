@@ -13,8 +13,8 @@
 #include <linux/kallsyms.h>
 
 #include "task_data.h"  // mm associated data
-#include "hook.h"             // function hooking
-#include "snapshot.h"         // main implementation
+#include "hook.h"       // function hooking
+#include "snapshot.h"   // main implementation
 #include "debug.h"
 
 #include "afl_snapshot.h"
@@ -43,51 +43,54 @@ static char *mod_devnode(struct device *dev, umode_t *mode) {
 long mod_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 
   switch (cmd) {
-  
+
     case AFL_SNAPSHOT_EXCLUDE_VMRANGE: {
-    
+
       DBG_PRINT("Calling afl_snapshot_exclude_vmrange");
 
       struct afl_snapshot_vmrange_args args;
-      if (copy_from_user(&args, (void *)arg, sizeof(struct afl_snapshot_vmrange_args)))
+      if (copy_from_user(&args, (void *)arg,
+                         sizeof(struct afl_snapshot_vmrange_args)))
         return -EINVAL;
 
       exclude_vmrange(args.start, args.end);
       return 0;
 
     }
-    
+
     case AFL_SNAPSHOT_INCLUDE_VMRANGE: {
-    
+
       DBG_PRINT("Calling afl_snapshot_include_vmrange");
 
       struct afl_snapshot_vmrange_args args;
-      if (copy_from_user(&args, (void *)arg, sizeof(struct afl_snapshot_vmrange_args)))
+      if (copy_from_user(&args, (void *)arg,
+                         sizeof(struct afl_snapshot_vmrange_args)))
         return -EINVAL;
 
       include_vmrange(args.start, args.end);
       return 0;
 
     }
-    
+
     case AFL_SNAPSHOT_IOCTL_TAKE: {
-    
+
       DBG_PRINT("Calling afl_snapshot_take");
 
       return take_snapshot(arg);
 
     }
-    
+
     case AFL_SNAPSHOT_IOCTL_DO: {
-    
+
       DBG_PRINT("Calling afl_snapshot_do");
 
-      return take_snapshot(AFL_SNAPSHOT_MMAP | AFL_SNAPSHOT_FDS | AFL_SNAPSHOT_REGS | AFL_SNAPSHOT_EXIT);
+      return take_snapshot(AFL_SNAPSHOT_MMAP | AFL_SNAPSHOT_FDS |
+                           AFL_SNAPSHOT_REGS | AFL_SNAPSHOT_EXIT);
 
     }
-    
+
     case AFL_SNAPSHOT_IOCTL_RESTORE: {
-    
+
       DBG_PRINT("Calling afl_snapshot_restore");
 
       recover_snapshot();
@@ -96,7 +99,7 @@ long mod_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
     }
 
     case AFL_SNAPSHOT_IOCTL_CLEAN: {
-    
+
       DBG_PRINT("Calling afl_snapshot_clean");
 
       clean_snapshot();
@@ -131,9 +134,8 @@ syscall_handler_t orig_sct_exit_group = NULL;
 
 asmlinkage int sys_exit_group(struct pt_regs *regs) {
 
-  if (exit_snapshot())
-    return orig_sct_exit_group(regs);
-  
+  if (exit_snapshot()) return orig_sct_exit_group(regs);
+
   return 0;
 
 }
@@ -279,7 +281,7 @@ static int __init mod_init(void) {
     return -ENOENT;
 
   }
-  
+
   if (!try_hook("do_exit", &exit_hook)) {
 
     FATAL("Unable to hook do_exit");

@@ -11,9 +11,9 @@ void (*k_zap_page_range)(struct vm_area_struct *vma, unsigned long start,
                          unsigned long size);
 
 int exit_hook(struct kprobe *p, struct pt_regs *regs) {
-  
+
   clean_snapshot();
-  
+
   return 0;
 
 }
@@ -35,7 +35,7 @@ int snapshot_initialize_k_funcs() {
 
 }
 
-void initialize_snapshot(struct task_data * data, int config) {
+void initialize_snapshot(struct task_data *data, int config) {
 
   struct pt_regs *regs = task_pt_regs(current);
 
@@ -45,7 +45,7 @@ void initialize_snapshot(struct task_data * data, int config) {
 
     set_had_snapshot(data);
     hash_init(data->ss.ss_page);
-  
+
   }
 
   set_snapshot(data);
@@ -54,22 +54,22 @@ void initialize_snapshot(struct task_data * data, int config) {
 
   // copy current regs context
   data->ss.regs = *regs;
-  
+
   // copy current brk
   data->ss.oldbrk = current->mm->brk;
-  
+
 }
 
 int take_snapshot(int config) {
 
   struct task_data *data = ensure_task_data(current);
 
-  if (!have_snapshot(data)) { // first execution
+  if (!have_snapshot(data)) {  // first execution
 
     initialize_snapshot(data, config);
     take_memory_snapshot(data);
     take_files_snapshot(data);
-    
+
     return 1;
 
   }
@@ -86,17 +86,17 @@ void recover_state(struct task_data *data) {
 
     // restore regs context
     *regs = data->ss.regs;
-  
+
   }
-  
+
   // restore brk
-  if (current->mm->brk > data->ss.oldbrk)
-    current->mm->brk = data->ss.oldbrk;
+  if (current->mm->brk > data->ss.oldbrk) current->mm->brk = data->ss.oldbrk;
 
 }
 
-void restore_snapshot(struct task_data* data) {
+void restore_snapshot(struct task_data *data) {
 
+  recover_threads_snapshot(data);
   recover_memory_snapshot(data);
   recover_files_snapshot(data);
   recover_state(data);
@@ -120,8 +120,7 @@ int exit_snapshot(void) {
 
   }
 
-  if (data && had_snapshot(data))
-    clean_snapshot();
+  if (data && had_snapshot(data)) clean_snapshot();
 
   return 1;
 
@@ -139,3 +138,4 @@ void clean_snapshot(void) {
   remove_task_data(data);
 
 }
+

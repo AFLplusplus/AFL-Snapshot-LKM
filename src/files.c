@@ -3,7 +3,7 @@
 #include "task_data.h"
 #include "snapshot.h"
 
-void take_files_snapshot(struct task_data * data) {
+void take_files_snapshot(struct task_data *data) {
 
   struct files_struct *files = current->files;
   struct fdtable *     fdt = rcu_dereference_raw(files->fdt);
@@ -20,7 +20,7 @@ void take_files_snapshot(struct task_data * data) {
 
 }
 
-void recover_files_snapshot(struct task_data * data) {
+void recover_files_snapshot(struct task_data *data) {
 
   /*
    * assume the child process will not close any
@@ -73,7 +73,7 @@ void recover_files_snapshot(struct task_data * data) {
 
 }
 
-void clean_files_snapshot(struct task_data * data) {
+void clean_files_snapshot(struct task_data *data) {
 
   struct files_struct *files = current->files;
 
@@ -87,5 +87,4 @@ void clean_files_snapshot(struct task_data * data) {
   if (data->snapshot_open_fds != NULL) kfree(data->snapshot_open_fds);
 
 }
-
 
