@@ -16,6 +16,7 @@
 #include "hook.h"       // function hooking
 #include "snapshot.h"   // main implementation
 #include "debug.h"
+#include "symbols.h"
 
 #include "afl_snapshot.h"
 
@@ -144,16 +145,16 @@ static void **get_syscall_table(void) {
 
   void **syscall_table = NULL;
 
-  syscall_table = kallsyms_lookup_name("sys_call_table");
+  syscall_table = (void**)SYMADDR_sys_call_table;
 
   if (syscall_table) { return syscall_table; }
 
   int                i;
-  unsigned long long s0 = kallsyms_lookup_name("__x64_sys_read");
-  unsigned long long s1 = kallsyms_lookup_name("__x64_sys_write");
+  unsigned long long s0 = SYMADDR___x64_sys_read;
+  unsigned long long s1 = SYMADDR___x64_sys_read;
 
   unsigned long long *data =
-      (unsigned long long *)((uint64_t)kallsyms_lookup_name("_etext") & ~0x7);
+      (unsigned long long *)(SYMADDR__etext & ~0x7);
   for (i = 0; (unsigned long long)(&data[i]) < ULLONG_MAX; i++) {
 
     unsigned long long d;

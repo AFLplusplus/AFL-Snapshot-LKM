@@ -2,6 +2,7 @@
 #include "debug.h"
 #include "task_data.h"
 #include "snapshot.h"
+#include "symbols.h"
 
 void (*k_flush_tlb_mm_range)(struct mm_struct *mm, unsigned long start,
                              unsigned long end, unsigned int stride_shift,
@@ -24,8 +25,8 @@ int exit_hook(struct kprobe *p, struct pt_regs *regs) {
 
 int snapshot_initialize_k_funcs() {
 
-  k_flush_tlb_mm_range = (void *)kallsyms_lookup_name("flush_tlb_mm_range");
-  k_zap_page_range = (void *)kallsyms_lookup_name("zap_page_range");
+  k_flush_tlb_mm_range = (void *)SYMADDR_flush_tlb_mm_range;
+  k_zap_page_range = (void *)SYMADDR_zap_page_range;
 
   if (!k_flush_tlb_mm_range || !k_zap_page_range) { return -ENOENT; }
 
