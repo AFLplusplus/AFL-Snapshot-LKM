@@ -90,5 +90,7 @@ Remove the snapshot, you can not call `afl_snapshot_take` in another program poi
 
 ### TODOs
 
- + switch from kprobe to ftrace for hooking (faster)
  + support for multithreaded applications
+ + file descriptors state restore (lseek)
+ + switch from kprobe to ftrace for hooking (faster)
+ 
