@@ -97,6 +97,7 @@ void recover_state(struct task_data *data) {
 
 void restore_snapshot(struct task_data* data) {
 
+  recover_threads_snapshot(data);
   recover_memory_snapshot(data);
   recover_files_snapshot(data);
   recover_state(data);

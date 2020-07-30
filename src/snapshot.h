@@ -106,6 +106,14 @@ struct snapshot_vma {
 
 };
 
+struct snapshot_thread {
+
+  struct task_struct* tsk;
+  
+  
+
+};
+
 struct snapshot_page {
 
   unsigned long page_base;
@@ -193,6 +201,8 @@ void clean_memory_snapshot(struct task_data *data);
 void take_files_snapshot(struct task_data * data);
 void recover_files_snapshot(struct task_data * data);
 void clean_files_snapshot(struct task_data * data);
+
+void recover_threads_snapshot(struct task_data * data);
 
 int snapshot_initialize_k_funcs(void);
 
