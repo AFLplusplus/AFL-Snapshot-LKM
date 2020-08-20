@@ -38,7 +38,9 @@ static struct task_struct *next_tid(struct task_struct *start) {
 
 void recover_threads_snapshot(struct task_data *data) {
 
-  struct task_struct *t = get_task_struct(data->tsk->group_leader);
+  struct task_struct *t = data->tsk->group_leader;
+  atomic_inc(&(data->tsk->group_leader)->usage);
+
   while (t) {
 
     if (t != data->tsk) send_sig(SIGKILL, t, 1);
