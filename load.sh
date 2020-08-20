@@ -7,7 +7,11 @@ if [ '!' "$EUID" = 0 ] && [ '!' `id -u` = 0 ] ; then
 	exit 1
 fi
 
+export ARCH=${ARCH:-x64}
+
 cd src/
+
+rmmod afl_snapshot
 
 make
 insmod afl_snapshot.ko
