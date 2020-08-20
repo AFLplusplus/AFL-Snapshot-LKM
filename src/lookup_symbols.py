@@ -26,9 +26,9 @@ for e in system_map:
         register_chrdev_region = int(e[0], 16)
     elif e[2] == 'sys_call_table':
         sys_call_table = int(e[0], 16)
-    elif e[2] == '__x64_sys_read':
+    elif e[2] == '__x64_sys_read' or e[2] == 'sys_read':
         __x64_sys_read = int(e[0], 16)
-    elif e[2] == '__x64_sys_write':
+    elif e[2] == '__x64_sys_write' or e[2] == 'sys_write':
         __x64_sys_write = int(e[0], 16)
     elif e[2] == 'flush_tlb_mm_range':
         flush_tlb_mm_range = int(e[0], 16)
