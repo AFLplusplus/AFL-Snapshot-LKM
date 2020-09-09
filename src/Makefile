@@ -3,7 +3,11 @@ override M = $(PWD)
 endif
 
 ifndef LINUX_SYSTEM_MAP
+ifdef KALLSYMS
 override LINUX_SYSTEM_MAP = /proc/kallsyms
+else
+override LINUX_SYSTEM_MAP = /boot/System.map-$(shell uname -r)
+endif
 endif
 
 obj-m += afl_snapshot.o
@@ -25,14 +29,8 @@ LINUX_DIR ?= /lib/modules/$(shell uname -r)/build
 
 .PHONY: all
 
-SUDO := $(shell which sudo)
-
 all:
-ifeq ($(SUDO),)
 	env ARCH='$(ARCH)' LINUX_SYSTEM_MAP='$(LINUX_SYSTEM_MAP)' python3 lookup_symbols.py
-else
-	sudo env ARCH='$(ARCH)' LINUX_SYSTEM_MAP='$(LINUX_SYSTEM_MAP)' python3 lookup_symbols.py
-endif
 
 	$(MAKE) -C '$(LINUX_DIR)' M='$(M)' modules
 
