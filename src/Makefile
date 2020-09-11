@@ -2,12 +2,30 @@ ifndef M
 override M = $(PWD)
 endif
 
-ifndef LINUX_SYSTEM_MAP
-ifdef KALLSYMS
-override LINUX_SYSTEM_MAP = /proc/kallsyms
+ifeq "$(shell uname -m)" "x86_64"
+  ARCH := x64
 else
-override LINUX_SYSTEM_MAP = /boot/System.map-$(shell uname -r)
+  # not sure about this one
+  ARCH := ia32
 endif
+
+MAP = /boot/System.map-$(shell uname -r)
+SYMS = /proc/kallsyms
+
+ifndef LINUX_SYSTEM_MAP
+  ifdef KALLSYMS
+    override LINUX_SYSTEM_MAP = /proc/kallsyms
+  else
+    ifeq "$(shell test -e $(MAP) && echo 1)" "1"
+      override LINUX_SYSTEM_MAP = $(MAP)
+    else
+      ifeq "$(shell test -e $(SYMS) && echo 1)" "1"
+        override LINUX_SYSTEM_MAP = $(SYMS)
+      else
+      	$(error no $(MAP) and no $(SYMS) found)
+      endif
+    endif
+  endif
 endif
 
 obj-m += afl_snapshot.o
@@ -22,7 +40,7 @@ ccflags-y := \
   $(CCFLAGS)
 
 ifdef DEBUG
-ccflags-y += -DDEBUG
+  ccflags-y += -DDEBUG
 endif
 
 LINUX_DIR ?= /lib/modules/$(shell uname -r)/build
