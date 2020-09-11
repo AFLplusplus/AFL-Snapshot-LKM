@@ -157,8 +157,8 @@ static void **get_syscall_table(void) {
   if (syscall_table) { return syscall_table; }
 
   int                i;
-  unsigned long long s0 = SYMADDR___x64_sys_read;
-  unsigned long long s1 = SYMADDR___x64_sys_read;
+  unsigned long long s0 = SYMADDR_sys_read;
+  unsigned long long s1 = SYMADDR_sys_read;
 
   unsigned long long *data =
       (unsigned long long *)(SYMADDR__etext & ~0x7);
