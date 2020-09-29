@@ -128,6 +128,7 @@ static struct file_operations dev_fops = {
 
 };
 
+#ifdef ARCH_HAS_SYSCALL_WRAPPER
 typedef int (*syscall_handler_t)(struct pt_regs *);
 
 // The original syscall handler that we removed to override exit_group()
@@ -147,6 +148,20 @@ asmlinkage int sys_exit_group(struct pt_regs *regs) {
   return 0;
 
 }
+#else
+typedef long (*syscall_handler_t)(int error_code);
+
+// The original syscall handler that we removed to override exit_group()
+syscall_handler_t orig_sct_exit_group = NULL;
+
+asmlinkage long sys_exit_group(int error_code) {
+
+  if (exit_snapshot()) return orig_sct_exit_group(error_code);
+
+  return 0;
+
+}
+#endif
 
 static void **get_syscall_table(void) {
 

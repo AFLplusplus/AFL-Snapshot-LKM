@@ -16,13 +16,13 @@ ifndef LINUX_SYSTEM_MAP
   ifdef KALLSYMS
     override LINUX_SYSTEM_MAP = /proc/kallsyms
   else
-    ifeq "$(shell test -e $(MAP) && echo 1)" "1"
+    ifeq "$(shell test -r $(MAP) && echo 1)" "1"
       override LINUX_SYSTEM_MAP = $(MAP)
     else
-      ifeq "$(shell test -e $(SYMS) && echo 1)" "1"
+      ifeq "$(shell test -r $(SYMS) && echo 1)" "1"
         override LINUX_SYSTEM_MAP = $(SYMS)
       else
-      	$(error no $(MAP) and no $(SYMS) found)
+        $(error no readable $(MAP) and no readable $(SYMS) found)
       endif
     endif
   endif
