@@ -11,6 +11,7 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/kallsyms.h>
+#include <linux/version.h>
 
 #include "task_data.h"  // mm associated data
 #include "hook.h"       // function hooking
@@ -161,6 +162,9 @@ asmlinkage long sys_exit_group(int error_code) {
   return 0;
 
 }
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,8,0) /* rename since Linux 5.8 */
+#define probe_kernel_read copy_from_kernel_nofault
 #endif
 
 static void **get_syscall_table(void) {
