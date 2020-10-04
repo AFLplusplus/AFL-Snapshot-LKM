@@ -11,6 +11,7 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/kallsyms.h>
+#include <linux/version.h>
 
 #include "task_data.h"  // mm associated data
 #include "hook.h"       // function hooking
@@ -128,6 +129,7 @@ static struct file_operations dev_fops = {
 
 };
 
+#ifdef ARCH_HAS_SYSCALL_WRAPPER
 typedef int (*syscall_handler_t)(struct pt_regs *);
 
 // The original syscall handler that we removed to override exit_group()
@@ -147,6 +149,23 @@ asmlinkage int sys_exit_group(struct pt_regs *regs) {
   return 0;
 
 }
+#else
+typedef long (*syscall_handler_t)(int error_code);
+
+// The original syscall handler that we removed to override exit_group()
+syscall_handler_t orig_sct_exit_group = NULL;
+
+asmlinkage long sys_exit_group(int error_code) {
+
+  if (exit_snapshot()) return orig_sct_exit_group(error_code);
+
+  return 0;
+
+}
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,8,0) /* rename since Linux 5.8 */
+#define probe_kernel_read copy_from_kernel_nofault
+#endif
 
 static void **get_syscall_table(void) {
 
@@ -157,8 +176,8 @@ static void **get_syscall_table(void) {
   if (syscall_table) { return syscall_table; }
 
   int                i;
-  unsigned long long s0 = SYMADDR___x64_sys_read;
-  unsigned long long s1 = SYMADDR___x64_sys_read;
+  unsigned long long s0 = SYMADDR_sys_read;
+  unsigned long long s1 = SYMADDR_sys_read;
 
   unsigned long long *data =
       (unsigned long long *)(SYMADDR__etext & ~0x7);

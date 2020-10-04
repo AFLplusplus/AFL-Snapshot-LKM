@@ -25,7 +25,8 @@ static struct task_struct *next_tid(struct task_struct *start) {
 
 /* void take_threads_snapshot(struct task_data * data) {
 
-  struct task_struct* t = get_task_struct(data->tsk->group_leader);
+  struct task_struct *t = data->tsk->group_leader;
+  get_task_struct(t);
   while (t) {
 
     if (t != data->tsk)
@@ -38,7 +39,9 @@ static struct task_struct *next_tid(struct task_struct *start) {
 
 void recover_threads_snapshot(struct task_data *data) {
 
-  struct task_struct *t = get_task_struct(data->tsk->group_leader);
+  struct task_struct *t = data->tsk->group_leader;
+  get_task_struct(t);
+
   while (t) {
 
     if (t != data->tsk) send_sig(SIGKILL, t, 1);

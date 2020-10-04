@@ -2,8 +2,30 @@ ifndef M
 override M = $(PWD)
 endif
 
+ifeq "$(shell uname -m)" "x86_64"
+  ARCH := x64
+else
+  # not sure about this one
+  ARCH := ia32
+endif
+
+MAP = /boot/System.map-$(shell uname -r)
+SYMS = /proc/kallsyms
+
 ifndef LINUX_SYSTEM_MAP
-override LINUX_SYSTEM_MAP = /boot/System.map-$(shell uname -r)
+  ifdef KALLSYMS
+    override LINUX_SYSTEM_MAP = /proc/kallsyms
+  else
+    ifeq "$(shell test -r $(MAP) && echo 1)" "1"
+      override LINUX_SYSTEM_MAP = $(MAP)
+    else
+      ifeq "$(shell test -r $(SYMS) && echo 1)" "1"
+        override LINUX_SYSTEM_MAP = $(SYMS)
+      else
+        $(error no readable $(MAP) and no readable $(SYMS) found)
+      endif
+    endif
+  endif
 endif
 
 obj-m += afl_snapshot.o
@@ -18,7 +40,7 @@ ccflags-y := \
   $(CCFLAGS)
 
 ifdef DEBUG
-ccflags-y += -DDEBUG
+  ccflags-y += -DDEBUG
 endif
 
 LINUX_DIR ?= /lib/modules/$(shell uname -r)/build
@@ -26,7 +48,8 @@ LINUX_DIR ?= /lib/modules/$(shell uname -r)/build
 .PHONY: all
 
 all:
-	sudo env LINUX_SYSTEM_MAP='$(LINUX_SYSTEM_MAP)' python3 lookup_symbols.py
+	env ARCH='$(ARCH)' LINUX_SYSTEM_MAP='$(LINUX_SYSTEM_MAP)' python3 lookup_symbols.py
+
 	$(MAKE) -C '$(LINUX_DIR)' M='$(M)' modules
 
 clean:
