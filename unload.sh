@@ -7,6 +7,4 @@ if [ '!' "$EUID" = 0 ] && [ '!' `id -u` = 0 ] ; then
 	exit 1
 fi
 
-cd src/
-
-rmmod afl_snapshot
+rmmod afl_snapshot && echo Successfully unloaded the module

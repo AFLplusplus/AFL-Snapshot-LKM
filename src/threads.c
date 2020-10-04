@@ -41,6 +41,7 @@ void recover_threads_snapshot(struct task_data *data) {
 
   struct task_struct *t = data->tsk->group_leader;
   get_task_struct(t);
+
   while (t) {
 
     if (t != data->tsk) send_sig(SIGKILL, t, 1);
