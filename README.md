@@ -1,12 +1,15 @@
 # AFL++ Snapshot LKM
 
 A Linux Kernel Module that implements a fast snapshot mechanism for fuzzing.
-
-Written and maintained by Andrea Fioraldi <andreafioraldi@gmail.com>.
-
+Written by Andrea Fioraldi <andreafioraldi@gmail.com>.
 First port to a LKM written by Nick "kallsyms" Gregory.
-
 Originally inspired by https://github.com/sslab-gatech/perf-fuzz.
+
+**!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!**
+
+**PLEASE NOTE**: Due to syscall hooking and the never ending changes in the kernel we are unable to maintain it as we are busy working on libafl. If you would like to take over the development, just create an issue and let us start a discussion. We still accept pull requests in the mean time.
+
+**!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!**
 
 ## Why?
 
