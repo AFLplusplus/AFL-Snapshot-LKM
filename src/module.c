@@ -129,7 +129,7 @@ static struct file_operations dev_fops = {
 
 };
 
-#ifdef ARCH_HAS_SYSCALL_WRAPPER
+#ifdef CONFIG_ARCH_HAS_SYSCALL_WRAPPER
 typedef int (*syscall_handler_t)(struct pt_regs *);
 
 // The original syscall handler that we removed to override exit_group()
