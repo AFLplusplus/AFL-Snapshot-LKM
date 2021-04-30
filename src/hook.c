@@ -5,7 +5,7 @@
 #include <linux/slab.h>
 #include <linux/version.h>
 #include "debug.h"
-#include "ftrace_helper.h"
+#include "ftrace_util.h"
 // TODO(andrea) switch from Kprobes to Ftrace
 
 struct hook {
