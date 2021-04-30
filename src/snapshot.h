@@ -98,6 +98,7 @@
 #define MODULE 1
 #include <asm/uaccess.h>
 #include <linux/list.h>
+#include <linux/version.h>
 
 #include "afl_snapshot.h"
 
