@@ -98,20 +98,10 @@
 #define MODULE 1
 #include <asm/uaccess.h>
 #include <linux/list.h>
-#include <linux/version.h>
 
 #include "afl_snapshot.h"
+#include "ftrace_util.h"
 
-// In 5.11+, ftrace hooks take ftrace_regs as argument.
-// Hacky way to fix this for older kernels.
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,11,0)
-struct ftrace_regs {
-	struct pt_regs		regs;
-};
-#define FTRACE_OPS_FL_RECURSION 0
-#else
-#define FTRACE_OPS_FL_RECURSION_SAFE 0
-#endif
 struct task_data;
 
 // TODO lock VMA restore

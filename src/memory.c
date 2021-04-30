@@ -605,7 +605,7 @@ static long return_0_stub_func(void) {
 }
 
 int wp_page_hook(unsigned long ip, unsigned long parent_ip,
-                   struct ftrace_ops *op, struct ftrace_regs *regs) {
+                   struct ftrace_ops *op, ftrace_regs_ptr regs) {
 
   struct vm_fault *     vmf;
   struct mm_struct *    mm;
@@ -615,9 +615,9 @@ int wp_page_hook(unsigned long ip, unsigned long parent_ip,
   pte_t                 entry;
   char *                vfrom;
 
+  struct pt_regs* pregs = ftrace_get_regs(regs);
 
-
-  vmf = (struct vm_fault *)regs->regs.di;
+  vmf = (struct vm_fault *)pregs->di;
   mm = vmf->vma->vm_mm;
   ss_page = NULL;
 
@@ -706,7 +706,7 @@ int wp_page_hook(unsigned long ip, unsigned long parent_ip,
     pte_unmap_unlock(vmf->pte, vmf->ptl);
 
     // skip original function
-    regs->regs.ip = (long unsigned int)&return_0_stub_func;
+    pregs->ip = (long unsigned int)&return_0_stub_func;
     return 1;
 
   }
@@ -718,7 +718,7 @@ int wp_page_hook(unsigned long ip, unsigned long parent_ip,
 // actually hooking page_add_new_anon_rmap, but we really only care about calls
 // from do_anonymous_page
 int do_anonymous_hook(unsigned long ip, unsigned long parent_ip,
-                   struct ftrace_ops *op, struct ftrace_regs *regs) {
+                   struct ftrace_ops *op, ftrace_regs_ptr regs) {
 
   struct vm_area_struct *vma;
   struct mm_struct *     mm;
@@ -726,8 +726,10 @@ int do_anonymous_hook(unsigned long ip, unsigned long parent_ip,
   struct snapshot_page * ss_page;
   unsigned long          address;
 
-  vma = (struct vm_area_struct *)regs->regs.si;
-  address = regs->regs.dx;
+  struct pt_regs* pregs = ftrace_get_regs(regs);
+
+  vma = (struct vm_area_struct *)pregs->si;
+  address = pregs->dx;
   mm = vma->vm_mm;
   ss_page = NULL;
 

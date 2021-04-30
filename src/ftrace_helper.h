@@ -10,6 +10,7 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 #include "debug.h"
+#include "ftrace_util.h"
 
 #if defined(CONFIG_X86_64) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
 #define PTREGS_SYSCALL_STUBS 1
@@ -109,15 +110,16 @@ static int fh_resolve_hook_address(struct ftrace_hook *hook)
 }
 
 /* See comment below within fh_install_hook() */
-static void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip, struct ftrace_ops *ops, struct ftrace_regs *regs)
+static void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip, struct ftrace_ops *ops, ftrace_regs_ptr regs)
 {
     struct ftrace_hook *hook = container_of(ops, struct ftrace_hook, ops);
+    struct pt_regs* pregs = ftrace_get_regs(regs);
 
 #if USE_FENTRY_OFFSET
-    regs->ip = (unsigned long) hook->function;
+    pregs->ip = (unsigned long) hook->function;
 #else
     if(!within_module(parent_ip, THIS_MODULE))
-        regs->regs.ip = (unsigned long) hook->function;
+        pregs->ip = (unsigned long) hook->function;
 #endif
 }
 
