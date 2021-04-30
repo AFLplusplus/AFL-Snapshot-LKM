@@ -5,7 +5,6 @@
 
 int exit_hook(unsigned long ip, unsigned long parent_ip,
                    struct ftrace_ops *op, struct ftrace_regs *regs) {
-  // PREEMPT_DEBUG("before clean_snapshot");
   clean_snapshot();
 
   return 0;
@@ -88,11 +87,7 @@ void recover_snapshot(void) {
 }
 
 int exit_snapshot(void) {
-  // SAYF("Entered exit_snapshot, current task: %p\n", current);
-  // SAYF("The process is \"%s\" (pid %i)\n", current->comm, current->pid);
   struct task_data *data = get_task_data(current);
-  // SAYF("Found task data: %p (%d)\n", data, data->config);
-  // return 1;
   if (data && (data->config & AFL_SNAPSHOT_EXIT) && have_snapshot(data)) {
 
     restore_snapshot(data);

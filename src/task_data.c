@@ -8,7 +8,6 @@ static spinlock_t task_datas_lock;
 static void task_data_free_callback(struct rcu_head *rcu) {
 
   struct task_data *data = container_of(rcu, struct task_data, rcu);
-  // should probably free all the other stuff here too?
   struct vmrange_node *n = data->blocklist;
   while (n) {
     data->blocklist = n->next;
@@ -28,12 +27,9 @@ static void task_data_free_callback(struct rcu_head *rcu) {
 }
 
 struct task_data *get_task_data(const struct task_struct *tsk) {
-  // SAYF("entered get_task_data(%p)\n", tsk);
   struct task_data *data = NULL;
-  // return NULL;
 
   rcu_read_lock();
-  // SAYF("rcu_read_lock ok\n");
   list_for_each_entry_rcu(data, &task_datas, list) {
 
     if (data->tsk == tsk) {
@@ -45,11 +41,7 @@ struct task_data *get_task_data(const struct task_struct *tsk) {
 
   }
 
-  // SAYF("list_foreach_done\n");
-
   rcu_read_unlock();
-
-  // SAYF("rcu_read_unlock ok\n");
 
   return NULL;
 
@@ -61,6 +53,7 @@ struct task_data *ensure_task_data(const struct task_struct *tsk) {
   if (data) return data;
 
   // XXX: this is academic code (tm) so if we run out of memory, too bad!
+  // TODO: Not sure if this is still the case? should be freed correctly.
   data = kmalloc(sizeof(struct task_data), GFP_KERNEL | __GFP_ZERO);
   if (!data) return NULL;
 

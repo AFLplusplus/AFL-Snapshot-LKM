@@ -167,10 +167,7 @@ typedef long (*syscall_handler_t)(int error_code);
 syscall_handler_t orig_sct_exit_group = NULL;
 
 asmlinkage long sys_exit_group(int error_code) {
-  SAYF("hooked sys_exit_group(%d)\n", error_code);
-  int ret = exit_snapshot();
-  SAYF("exit_snapshot() = %d\n", ret);
-  return orig_sct_exit_group(error_code);
+
   if (exit_snapshot()) return orig_sct_exit_group(error_code);
 
   return 0;
@@ -186,76 +183,7 @@ static struct ftrace_hook syscall_hooks[] = {
 #define probe_kernel_read copy_from_kernel_nofault
 #endif
 
-static void **get_syscall_table(void) {
-
-  void **syscall_table = NULL;
-
-  syscall_table = (void**)SYMADDR_sys_call_table;
-
-  if (syscall_table) { return syscall_table; }
-
-  int                i;
-  unsigned long long s0 = SYMADDR_sys_read;
-  unsigned long long s1 = SYMADDR_sys_read;
-
-  unsigned long long *data =
-      (unsigned long long *)(SYMADDR__etext & ~0x7);
-  for (i = 0; (unsigned long long)(&data[i]) < ULLONG_MAX; i++) {
-
-    unsigned long long d;
-    // use probe_kernel_read so we don't fault
-    if (probe_kernel_read(&d, &data[i], sizeof(d))) { continue; }
-
-    if (d == s0 && data[i + 1] == s1) {
-
-      syscall_table = (void **)(&data[i]);
-      break;
-
-    }
-
-  }
-
-  return syscall_table;
-
-}
-
-static void _write_cr0(unsigned long val) {
-
-  asm volatile("mov %0,%%cr0" : "+r"(val));
-
-}
-
-static void enable_write_protection(void) {
-
-  _write_cr0(read_cr0() | (1 << 16));
-
-}
-
-static void disable_write_protection(void) {
-
-  _write_cr0(read_cr0() & (~(1 << 16)));
-
-}
-
-static void **syscall_table_ptr;
-
-static void patch_syscall_table(void) {
-
-  disable_write_protection();
-  orig_sct_exit_group = syscall_table_ptr[__NR_exit_group];
-  syscall_table_ptr[__NR_exit_group] = &sys_exit_group;
-  enable_write_protection();
-
-}
-
-static void unpatch_syscall_table(void) {
-
-  disable_write_protection();
-  syscall_table_ptr[__NR_exit_group] = orig_sct_exit_group;
-  enable_write_protection();
-
-}
-
+// TODO(galli-leo): we should be able to just use kallsyms_lookup_name now.
 int snapshot_initialize_k_funcs() {
 
   k_flush_tlb_mm_range = (void *)SYMADDR_flush_tlb_mm_range;
@@ -310,23 +238,10 @@ static int __init mod_init(void) {
 
   SAYF("The major device number is %d", mod_major_num);
 
-  // syscall_table overwrites
-  syscall_table_ptr = get_syscall_table();
-  if (!syscall_table_ptr) {
-
-    FATAL("Unable to locate syscall_table");
-    return -ENOENT;
-
-  }
-
-  // patch_syscall_table();
-  // return 0;
   int err;
   err = fh_install_hooks(syscall_hooks, ARRAY_SIZE(syscall_hooks));
   if(err)
       return err;
-
-  // return 0;
 
   // func hooks
   if (!try_hook("do_wp_page", &wp_page_hook)) {
@@ -376,10 +291,7 @@ static void __exit mod_exit(void) {
   class_destroy(mod_class);
   unregister_chrdev(mod_major_num, DEVICE_NAME);
 
-  // return; 
-
   unhook_all();
-  // unpatch_syscall_table();
   fh_remove_hooks(syscall_hooks, ARRAY_SIZE(syscall_hooks));
 
 }

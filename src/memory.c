@@ -6,15 +6,6 @@
 static DEFINE_PER_CPU(struct task_struct *, last_task) = NULL;
 static DEFINE_PER_CPU(struct task_data *, last_data) = NULL;
 
-// #define put_cpu_var_d(val) PREEMPT_DEBUG("before put " #val); put_cpu_var(val); PREEMPT_DEBUG("after put " #val);
-#define put_cpu_var_d(val) put_cpu_var(val)
-
-#define preempt_debug_start int start_count = preempt_count();
-#define preempt_debug_end do { \
-  int end_count = preempt_count(); \
-  if (end_count != start_count) WARNF("[%s():%s:%d] preempt_count wrong, start = %d != %d = end\n", __FUNCTION__, __FILE__, __LINE__, start_count, end_count);\
-} while (0);
-
 pmd_t *get_page_pmd(unsigned long addr) {
 
   pgd_t *pgd;
@@ -210,8 +201,6 @@ struct snapshot_page *get_snapshot_page(struct task_data *data,
 
   struct snapshot_page *sp;
 
-  // SAYF("get_snapshot_page(%px, %px)\n", data->ss.)
-
   hash_for_each_possible(data->ss.ss_page, sp, next, page_base) {
 
     if (sp->page_base == page_base) return sp;
@@ -234,7 +223,6 @@ struct snapshot_page *add_snapshot_page(struct task_data *data,
 
     sp->page_base = page_base;
     sp->page_data = NULL;
-    // sp->next = NULL;
     hash_add(data->ss.ss_page, &sp->next, sp->page_base);
 
   }
@@ -316,32 +304,30 @@ void take_memory_snapshot(struct task_data *data) {
   struct vm_area_struct *pvma = current->mm->mmap;
   unsigned long          addr;
 
-  // preempt_debug_start
-
   get_cpu_var(last_task) = NULL;
   get_cpu_var(last_data) = NULL;
-  put_cpu_var_d(last_task);
-  put_cpu_var_d(last_data);
+  put_cpu_var(last_task);
+  put_cpu_var(last_data);
 
-  // preempt_debug_end
+  // Only do loops if DBG_PRINT actually does something.
+  // Not sure if compiler would be smart enough to eliminate these anyways.
+  #if DEBUG
+  struct vmrange_node *n = data->allowlist;
+  while (n) {
 
-  // struct vmrange_node *n = data->allowlist;
-  // while (n) {
+    DBG_PRINT("Allowlist: 0x%08lx - 0x%08lx\n", n->start, n->end);
+    n = n->next;
 
-  //   DBG_PRINT("Allowlist: 0x%08lx - 0x%08lx\n", n->start, n->end);
-  //   n = n->next;
+  }
 
-  // }
+  n = data->blocklist;
+  while (n) {
 
-  // n = data->blocklist;
-  // while (n) {
+    DBG_PRINT("Blocklist: 0x%08lx - 0x%08lx\n", n->start, n->end);
+    n = n->next;
 
-  //   DBG_PRINT("Blocklist: 0x%08lx - 0x%08lx\n", n->start, n->end);
-  //   n = n->next;
-
-  // }
-
-  // size_t count = 0;
+  }
+  #endif
 
   do {
 
@@ -374,12 +360,8 @@ void take_memory_snapshot(struct task_data *data) {
     }
 
     pvma = pvma->vm_next;
-    // count++;
 
   } while (pvma != NULL);
-  // if (count > 10) {
-  //   SAYF("ya seem loaded: %d\n", count);
-  // }
 }
 
 void munmap_new_vmas(struct task_data *data) {
@@ -472,8 +454,6 @@ void munmap_new_vmas(struct task_data *data) {
 
 }
 
-#include <asm/page_64.h>
-
 void do_recover_page(struct snapshot_page *sp) {
 
   DBG_PRINT(
@@ -483,7 +463,6 @@ void do_recover_page(struct snapshot_page *sp) {
       sp->page_prot);
   if (copy_to_user((void __user *)sp->page_base, sp->page_data, PAGE_SIZE) != 0)
     DBG_PRINT("incomplete copy_to_user\n");
-  // copy_page(sp->page_base, sp->page_data);
   sp->dirty = false;
 
 }
@@ -507,7 +486,12 @@ void recover_memory_snapshot(struct task_data *data) {
   int                   i;
 
   if (data->config & AFL_SNAPSHOT_MMAP) munmap_new_vmas(data);
-
+  // Instead of iterating over all pages in the snapshot and then restoring the dirty ones,
+  // we can save a lot of computing time by keeping a list of only dirty pages.
+  // Since we know exactly when pages match the conditions below, we can just insert them into the dirty list then.
+  // This had a massive boost on performance for me, >50%. (Might be more or less depending on a few factors).
+  //
+  // original loop below
   // hash_for_each(data->ss.ss_page, i, sp, next) {
   struct list_head* ptr;
   for (ptr = data->ss.dirty_pages.next; ptr != &data->ss.dirty_pages; ptr = ptr->next){
@@ -580,28 +564,20 @@ void clean_memory_snapshot(struct task_data *data) {
   struct snapshot_page *sp;
   int                   i;
 
-  // SAYF("clean_memory_snapshot initial (PID: %d)\n", current->pid);
-  // dump_stack();
-
-  preempt_debug_start
-
   struct task_struct* ltask = get_cpu_var(last_task);
   if (ltask == current) {
 
     get_cpu_var(last_task) = NULL;
     get_cpu_var(last_data) = NULL;
-    put_cpu_var_d(last_task);
-    put_cpu_var_d(last_data);
+    put_cpu_var(last_task);
+    put_cpu_var(last_data);
   }
-  put_cpu_var_d(last_task);
-
-  preempt_debug_end
+  put_cpu_var(last_task);
 
   if (data->config & AFL_SNAPSHOT_MMAP) clean_snapshot_vmas(data);
 
-  // SAYF("clean_memory_snapshot after snapshot vmas\n");
-
-  struct snapshot_page *prev_sp = NULL; // we need to always be a single item behind, otherwise I think we have a use after free!
+  // we need to always be a single item behind, otherwise we have a use after free!
+  struct snapshot_page *prev_sp = NULL;
 
   hash_for_each(data->ss.ss_page, i, sp, next) {
     if (prev_sp != NULL) {
@@ -610,15 +586,8 @@ void clean_memory_snapshot(struct task_data *data) {
       prev_sp = NULL;
     }
 
-    // if (sp == NULL) SAYF("dafuq, sp == NULL for %d\n", i);
-
-    // SAYF("BKT %i, sp %px, page_base %px, page_data %px\n", i, sp, sp->page_base, sp->page_data);
-
     if (sp->page_data != NULL) kfree(sp->page_data);
-
-    // SAYF("maybe freed sp->page_data\n");
     prev_sp = sp;
-    // if (sp != NULL) kfree(sp);
   }
 
   if (prev_sp != NULL) {
@@ -649,46 +618,27 @@ int wp_page_hook(unsigned long ip, unsigned long parent_ip,
 
 
   vmf = (struct vm_fault *)regs->regs.di;
-  // SAYF("HAD FAULT: %px\n", vmf->address);
-  // return 0;
   mm = vmf->vma->vm_mm;
   ss_page = NULL;
-  // SAYF("OWNER: %s (pid %d)\n", mm->owner->comm, mm->owner->pid);
-  // #ifdef CONFIG_PREEMPT_COUNT
-  // SAYF("Counting number preempts!\n");
-  // #endif
-  // return 0;
-  // preempt_debug_start
 
   struct task_struct* ltask = get_cpu_var(last_task);
   if (ltask == mm->owner) {
 
     // fast path
     data = get_cpu_var(last_data);
-    put_cpu_var_d(last_task);
-    put_cpu_var_d(last_data);
+    put_cpu_var(last_task);
+    put_cpu_var(last_data);
   } else {
 
     // query the radix tree
     data = get_task_data(mm->owner);
     get_cpu_var(last_task) = mm->owner;
     get_cpu_var(last_data) = data;
-    put_cpu_var_d(last_task);
-    put_cpu_var_d(last_task);
-    put_cpu_var_d(last_data);
+    put_cpu_var(last_task);
+    put_cpu_var(last_task);
+    put_cpu_var(last_data);
 
   }
-
-  // preempt_debug_end
-
-  // SAYF("Did find data: %px\n", data);
-
-  // return 0;
-
-  // put_cpu_var(last_task);
-  // put_cpu_var(last_data);  // not needed?
-
-  // return 0;
 
   if (data && have_snapshot(data)) {
 
@@ -788,17 +738,17 @@ int do_anonymous_hook(unsigned long ip, unsigned long parent_ip,
 
     // fast path
     data = get_cpu_var(last_data);
-    put_cpu_var_d(last_task);
-    put_cpu_var_d(last_data);
+    put_cpu_var(last_task);
+    put_cpu_var(last_data);
   } else {
 
     // query the radix tree
     data = get_task_data(mm->owner);
     get_cpu_var(last_task) = mm->owner;
     get_cpu_var(last_data) = data;
-    put_cpu_var_d(last_task);
-    put_cpu_var_d(last_task);
-    put_cpu_var_d(last_data);
+    put_cpu_var(last_task);
+    put_cpu_var(last_task);
+    put_cpu_var(last_data);
 
   }
 
