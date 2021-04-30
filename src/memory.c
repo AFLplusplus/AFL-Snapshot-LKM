@@ -731,8 +731,6 @@ int do_anonymous_hook(unsigned long ip, unsigned long parent_ip,
   mm = vma->vm_mm;
   ss_page = NULL;
 
-  preempt_debug_start
-
   struct task_struct* ltask = get_cpu_var(last_task);
   if (ltask == mm->owner) {
 
@@ -751,8 +749,6 @@ int do_anonymous_hook(unsigned long ip, unsigned long parent_ip,
     put_cpu_var(last_data);
 
   }
-
-  preempt_debug_end
 
   if (data && have_snapshot(data)) {
 
