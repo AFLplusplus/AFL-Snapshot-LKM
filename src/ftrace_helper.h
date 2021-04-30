@@ -27,7 +27,8 @@ static struct kprobe kp = {
     .symbol_name = "kallsyms_lookup_name"
 };
 typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
-kallsyms_lookup_name_t kallsyms_lookup_name;
+kallsyms_lookup_name_t kallsyms_lookup_name_var;
+#define kallsyms_lookup_name kallsyms_lookup_name_var;
 #endif
 
 /* x64 has to be special and require a different naming convention */
