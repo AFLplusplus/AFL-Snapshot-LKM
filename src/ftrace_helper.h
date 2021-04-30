@@ -144,6 +144,7 @@ int fh_install_hook(struct ftrace_hook *hook)
      * (see USE_FENTRY_OFFSET). */
     hook->ops.func = fh_ftrace_thunk;
     hook->ops.flags = FTRACE_OPS_FL_SAVE_REGS
+            | FTRACE_OPS_FL_RECURSION_SAFE
             | FTRACE_OPS_FL_IPMODIFY;
 
     err = ftrace_set_filter_ip(&hook->ops, hook->address, 0, 0);

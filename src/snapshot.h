@@ -108,6 +108,9 @@
 struct ftrace_regs {
 	struct pt_regs		regs;
 };
+#define FTRACE_OPS_FL_RECURSION 0
+#else
+#define FTRACE_OPS_FL_RECURSION_SAFE 0
 #endif
 struct task_data;
 
