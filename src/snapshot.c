@@ -3,8 +3,9 @@
 #include "task_data.h"
 #include "snapshot.h"
 
-int exit_hook(struct kprobe *p, struct pt_regs *regs) {
-
+int exit_hook(unsigned long ip, unsigned long parent_ip,
+                   struct ftrace_ops *op, struct ftrace_regs *regs) {
+  // PREEMPT_DEBUG("before clean_snapshot");
   clean_snapshot();
 
   return 0;
@@ -44,7 +45,7 @@ int take_snapshot(int config) {
 
     initialize_snapshot(data, config);
     take_memory_snapshot(data);
-    take_files_snapshot(data);
+    // take_files_snapshot(data);
 
     return 1;
 
@@ -74,7 +75,7 @@ void restore_snapshot(struct task_data *data) {
 
   recover_threads_snapshot(data);
   recover_memory_snapshot(data);
-  recover_files_snapshot(data);
+  // recover_files_snapshot(data);
   recover_state(data);
 
 }
@@ -87,8 +88,11 @@ void recover_snapshot(void) {
 }
 
 int exit_snapshot(void) {
-
+  // SAYF("Entered exit_snapshot, current task: %p\n", current);
+  // SAYF("The process is \"%s\" (pid %i)\n", current->comm, current->pid);
   struct task_data *data = get_task_data(current);
+  // SAYF("Found task data: %p (%d)\n", data, data->config);
+  // return 1;
   if (data && (data->config & AFL_SNAPSHOT_EXIT) && have_snapshot(data)) {
 
     restore_snapshot(data);
@@ -108,7 +112,7 @@ void clean_snapshot(void) {
   if (!data) { return; }
 
   clean_memory_snapshot(data);
-  clean_files_snapshot(data);
+  // clean_files_snapshot(data);
   clear_snapshot(data);
 
   remove_task_data(data);

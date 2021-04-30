@@ -37,7 +37,9 @@
 #include <linux/fs_struct.h>
 #include <linux/ftrace.h>
 #include <linux/futex.h>
+#undef MODULE
 #include <linux/hugetlb.h>
+#define MODULE 1
 #include <linux/init.h>
 #include <linux/iocontext.h>
 #include <linux/jiffies.h>
@@ -85,13 +87,17 @@
 #include <linux/vmalloc.h>
 
 #include <asm/cacheflush.h>
+#undef MODULE
 #include <asm/mmu_context.h>
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
 #include <asm/pgtable_types.h>
-#include <asm/tlb.h>
+
 #include <asm/tlbflush.h>
+#include <asm/tlb.h>
+#define MODULE 1
 #include <asm/uaccess.h>
+#include <linux/list.h>
 
 #include "afl_snapshot.h"
 
@@ -123,6 +129,8 @@ struct snapshot_page {
   bool dirty;
 
   struct hlist_node next;
+
+  struct list_head dirty_list;
 
 };
 
@@ -179,6 +187,8 @@ struct snapshot {
 
   DECLARE_HASHTABLE(ss_page, SNAPSHOT_HASHTABLE_SZ);
 
+  struct list_head dirty_pages;
+
 };
 
 #define SNAPSHOT_NONE 0x00000000  // outside snapshot
@@ -205,9 +215,12 @@ void recover_threads_snapshot(struct task_data *data);
 
 int snapshot_initialize_k_funcs(void);
 
-int wp_page_hook(struct kprobe *p, struct pt_regs *regs);
-int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs);
-int exit_hook(struct kprobe *p, struct pt_regs *regs);
+int wp_page_hook(unsigned long ip, unsigned long parent_ip,
+                   struct ftrace_ops *op, struct ftrace_regs *regs);
+int do_anonymous_hook(unsigned long ip, unsigned long parent_ip,
+                   struct ftrace_ops *op, struct ftrace_regs *regs);
+int exit_hook(unsigned long ip, unsigned long parent_ip,
+                   struct ftrace_ops *op, struct ftrace_regs *regs);
 
 int  take_snapshot(int config);
 void recover_snapshot(void);

@@ -18,6 +18,7 @@
 #include "snapshot.h"   // main implementation
 #include "debug.h"
 #include "symbols.h"
+#include "ftrace_helper.h"
 
 #include "afl_snapshot.h"
 
@@ -129,7 +130,7 @@ static struct file_operations dev_fops = {
 
 };
 
-#ifdef ARCH_HAS_SYSCALL_WRAPPER
+#ifdef CONFIG_ARCH_HAS_SYSCALL_WRAPPER
 typedef int (*syscall_handler_t)(struct pt_regs *);
 
 // The original syscall handler that we removed to override exit_group()
@@ -144,6 +145,16 @@ syscall_handler_t orig_sct_exit_group = NULL;
 
 asmlinkage int sys_exit_group(struct pt_regs *regs) {
 
+  // SAYF("hooked sys_exit_group(%p)\n", regs);
+  // enum show_regs_mode print_kernel_regs;
+
+	// show_regs_print_info(LOGLEVEL_INFO);
+
+	// print_kernel_regs = user_mode(regs) ? SHOW_REGS_USER : SHOW_REGS_ALL;
+	// __show_regs(regs, print_kernel_regs, LOGLEVEL_INFO);
+  // int ret = exit_snapshot();
+  // SAYF("exit_snapshot() = %d\n", ret);
+  // return orig_sct_exit_group(regs);
   if (exit_snapshot()) return orig_sct_exit_group(regs);
 
   return 0;
@@ -156,13 +167,21 @@ typedef long (*syscall_handler_t)(int error_code);
 syscall_handler_t orig_sct_exit_group = NULL;
 
 asmlinkage long sys_exit_group(int error_code) {
-
+  SAYF("hooked sys_exit_group(%d)\n", error_code);
+  int ret = exit_snapshot();
+  SAYF("exit_snapshot() = %d\n", ret);
+  return orig_sct_exit_group(error_code);
   if (exit_snapshot()) return orig_sct_exit_group(error_code);
 
   return 0;
 
 }
 #endif
+
+static struct ftrace_hook syscall_hooks[] = {
+    SYSCALL_HOOK("sys_exit_group", sys_exit_group, &orig_sct_exit_group),
+};
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,8,0) /* rename since Linux 5.8 */
 #define probe_kernel_read copy_from_kernel_nofault
 #endif
@@ -300,7 +319,14 @@ static int __init mod_init(void) {
 
   }
 
-  patch_syscall_table();
+  // patch_syscall_table();
+  // return 0;
+  int err;
+  err = fh_install_hooks(syscall_hooks, ARRAY_SIZE(syscall_hooks));
+  if(err)
+      return err;
+
+  // return 0;
 
   // func hooks
   if (!try_hook("do_wp_page", &wp_page_hook)) {
@@ -321,6 +347,8 @@ static int __init mod_init(void) {
     return -ENOENT;
 
   }
+
+  // return 0;
 
   if (!try_hook("do_exit", &exit_hook)) {
 
@@ -348,8 +376,11 @@ static void __exit mod_exit(void) {
   class_destroy(mod_class);
   unregister_chrdev(mod_major_num, DEVICE_NAME);
 
+  // return; 
+
   unhook_all();
-  unpatch_syscall_table();
+  // unpatch_syscall_table();
+  fh_remove_hooks(syscall_hooks, ARRAY_SIZE(syscall_hooks));
 
 }
 

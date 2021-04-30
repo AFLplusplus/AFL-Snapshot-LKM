@@ -57,7 +57,8 @@ void recover_files_snapshot(struct task_data *data) {
           DBG_PRINT("find new fds %d file* 0x%08lx\n", i, (unsigned long)file);
           // fdt->fd[i] = NULL;
           // filp_close(file, files);
-          __close_fd(files, i);
+          WARNF("closing doesn't work :(\n");
+          // __close_fd(files, i);
 
         }
 

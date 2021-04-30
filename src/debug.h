@@ -54,5 +54,7 @@
 
 #endif
 
+#define PREEMPT_DEBUG(tag) SAYF("[%s():%s:%d] " tag " preempt_count() == %d\n", __FUNCTION__, __FILE__, __LINE__, preempt_count())
+
 #endif
 

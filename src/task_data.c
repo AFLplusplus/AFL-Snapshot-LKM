@@ -1,5 +1,6 @@
 #include "task_data.h"
 #include <linux/slab.h>
+#include "debug.h"
 
 LIST_HEAD(task_datas);
 static spinlock_t task_datas_lock;
@@ -7,15 +8,32 @@ static spinlock_t task_datas_lock;
 static void task_data_free_callback(struct rcu_head *rcu) {
 
   struct task_data *data = container_of(rcu, struct task_data, rcu);
-  kfree(data);
+  // should probably free all the other stuff here too?
+  struct vmrange_node *n = data->blocklist;
+  while (n) {
+    data->blocklist = n->next;
+    kfree(n);
+    n = data->blocklist;
+  }
+  data->blocklist = NULL;
+  n = data->allowlist;
+  while (n) {
+    data->allowlist = n->next;
+    kfree(n);
+    n = data->allowlist;
+  }
+  data->allowlist = NULL;
 
+  kfree(data);
 }
 
 struct task_data *get_task_data(const struct task_struct *tsk) {
-
+  // SAYF("entered get_task_data(%p)\n", tsk);
   struct task_data *data = NULL;
+  // return NULL;
 
   rcu_read_lock();
+  // SAYF("rcu_read_lock ok\n");
   list_for_each_entry_rcu(data, &task_datas, list) {
 
     if (data->tsk == tsk) {
@@ -27,7 +45,11 @@ struct task_data *get_task_data(const struct task_struct *tsk) {
 
   }
 
+  // SAYF("list_foreach_done\n");
+
   rcu_read_unlock();
+
+  // SAYF("rcu_read_unlock ok\n");
 
   return NULL;
 
@@ -43,6 +65,7 @@ struct task_data *ensure_task_data(const struct task_struct *tsk) {
   if (!data) return NULL;
 
   data->tsk = tsk;
+  INIT_LIST_HEAD(&data->ss.dirty_pages);
 
   spin_lock(&task_datas_lock);
   list_add_rcu(&data->list, &task_datas);
