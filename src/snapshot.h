@@ -101,6 +101,11 @@
 
 #include "afl_snapshot.h"
 
+// TODO, at some point in time, ftrace_regs was introduced
+// Figure out when.
+struct ftrace_regs {
+	struct pt_regs		regs;
+};
 struct task_data;
 
 // TODO lock VMA restore
