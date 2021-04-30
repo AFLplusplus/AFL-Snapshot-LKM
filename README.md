@@ -31,6 +31,8 @@ however adding this snapshot module will still be a small improvement.
 |afl++|test_persistent_new|106k|89k|x1.2|
 |afl++|emmu_fuzz|10k-20k|40|x250-x500|
 
+**TODO:** Rerun the others with improved version?
+
 ## Usage
 
 Load it using `./load.sh`, unload it using `./unload.sh`.
