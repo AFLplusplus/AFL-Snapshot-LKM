@@ -3,8 +3,15 @@
 #include <linux/ftrace.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/version.h>
 #include "debug.h"
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,11,0)
+struct ftrace_regs {
+	struct pt_regs		regs;
+};
+#define FTRACE_OPS_FL_RECURSION 0
+#endif
 // TODO(andrea) switch from Kprobes to Ftrace
 
 struct hook {
