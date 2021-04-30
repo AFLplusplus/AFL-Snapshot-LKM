@@ -17,7 +17,7 @@
 #include "hook.h"       // function hooking
 #include "snapshot.h"   // main implementation
 #include "debug.h"
-#include "symbols.h"
+// #include "symbols.h"
 #include "ftrace_helper.h"
 
 #include "afl_snapshot.h"
@@ -186,8 +186,8 @@ static struct ftrace_hook syscall_hooks[] = {
 // TODO(galli-leo): we should be able to just use kallsyms_lookup_name now.
 int snapshot_initialize_k_funcs() {
 
-  k_flush_tlb_mm_range = (void *)SYMADDR_flush_tlb_mm_range;
-  k_zap_page_range = (void *)SYMADDR_zap_page_range;
+  k_flush_tlb_mm_range = (void *)kallsyms_lookup_name("flush_tlb_mm_range");
+  k_zap_page_range = (void *)kallsyms_lookup_name("zap_page_range");
 
   if (!k_flush_tlb_mm_range || !k_zap_page_range) { return -ENOENT; }
 
