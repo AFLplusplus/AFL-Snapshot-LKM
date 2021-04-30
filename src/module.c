@@ -247,7 +247,7 @@ static int __init mod_init(void) {
   if (!try_hook("do_wp_page", &wp_page_hook)) {
 
     FATAL("Unable to hook do_wp_page");
-    unpatch_syscall_table();
+    // unpatch_syscall_table();
 
     return -ENOENT;
 
@@ -258,7 +258,7 @@ static int __init mod_init(void) {
     FATAL("Unable to hook page_add_new_anon_rmap");
 
     unhook_all();
-    unpatch_syscall_table();
+    // unpatch_syscall_table();
     return -ENOENT;
 
   }
@@ -270,7 +270,7 @@ static int __init mod_init(void) {
     FATAL("Unable to hook do_exit");
 
     unhook_all();
-    unpatch_syscall_table();
+    // unpatch_syscall_table();
     return -ENOENT;
 
   }
