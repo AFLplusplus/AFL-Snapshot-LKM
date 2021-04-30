@@ -29,6 +29,7 @@ however adding this snapshot module will still be a small improvement.
 |tiff|thumbnail|5058|3114|x1.6|
 |libxml|xmllint|7835|3450|x2.3|
 |afl++|test_persistent_new|106k|89k|x1.2|
+|afl++|emmu_fuzz|10k-20k|40|x250-x500|
 
 ## Usage
 
