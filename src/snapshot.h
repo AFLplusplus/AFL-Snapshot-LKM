@@ -101,11 +101,13 @@
 
 #include "afl_snapshot.h"
 
-// TODO, at some point in time, ftrace_regs was introduced
-// Figure out when.
+// In 5.11+, ftrace hooks take ftrace_regs as argument.
+// Hacky way to fix this for older kernels.
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,11,0)
 struct ftrace_regs {
 	struct pt_regs		regs;
 };
+#endif
 struct task_data;
 
 // TODO lock VMA restore
