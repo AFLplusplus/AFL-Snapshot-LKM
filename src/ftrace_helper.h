@@ -26,6 +26,8 @@
 static struct kprobe kp = {
     .symbol_name = "kallsyms_lookup_name"
 };
+typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
+kallsyms_lookup_name_t kallsyms_lookup_name;
 #endif
 
 /* x64 has to be special and require a different naming convention */
@@ -84,8 +86,6 @@ struct ftrace_hook {
 static int fh_resolve_hook_address(struct ftrace_hook *hook)
 {
 #ifdef KPROBE_LOOKUP
-    typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
-    kallsyms_lookup_name_t kallsyms_lookup_name;
     register_kprobe(&kp);
     kallsyms_lookup_name = (kallsyms_lookup_name_t) kp.addr;
     unregister_kprobe(&kp);
