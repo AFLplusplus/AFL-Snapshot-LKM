@@ -497,11 +497,11 @@ void recover_memory_snapshot(struct task_data *data) {
   // This had a massive boost on performance for me, >50%. (Might be more or less depending on a few factors).
   //
   // original loop below
-  // hash_for_each(data->ss.ss_page, i, sp, next) {
+  hash_for_each(data->ss.ss_page, i, sp, next) {
   struct list_head* ptr;
-  for (ptr = data->ss.dirty_pages.next; ptr != &data->ss.dirty_pages; ptr = ptr->next){
+  // for (ptr = data->ss.dirty_pages.next; ptr != &data->ss.dirty_pages; ptr = ptr->next){
     count++;
-    sp = list_entry(ptr, struct snapshot_page, dirty_list);
+    // sp = list_entry(ptr, struct snapshot_page, dirty_list);
     if (sp->dirty &&
         sp->has_been_copied) {  // it has been captured by page fault
 
@@ -525,7 +525,7 @@ void recover_memory_snapshot(struct task_data *data) {
 
       }
 
-    // } else if (is_snapshot_page_private(sp)) {
+    } else if (is_snapshot_page_private(sp)) {
 
       // private page that has not been captured
       // still write protected
@@ -539,13 +539,13 @@ void recover_memory_snapshot(struct task_data *data) {
 
     }
     if (!sp->in_dirty_list) {
-      WARNF("0x%016lx: sp->in_dirty_list = false, but we just encountered it in dirty list!?", sp->page_base);
+      // WARNF("0x%016lx: sp->in_dirty_list = false, but we just encountered it in dirty list!?", sp->page_base);
     }
     sp->in_dirty_list = false;
-    if (ptr->next == ptr || ptr->prev == ptr) {
-      WARNF("0x%016lx: DETECTED CYCLE IN DIRTY LIST: ptr: %px, ptr->next: %px", sp->page_base, &ptr, ptr->next);
-      break;
-    }
+    // if (ptr->next == ptr || ptr->prev == ptr) {
+    //   WARNF("0x%016lx: DETECTED CYCLE IN DIRTY LIST: ptr: %px, ptr->next: %px", sp->page_base, &ptr, ptr->next);
+    //   break;
+    // }
   }
 
   DBG_PRINT("HAD %d dirty pages!", count);
