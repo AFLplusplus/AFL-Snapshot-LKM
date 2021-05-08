@@ -197,6 +197,9 @@ int snapshot_initialize_k_funcs() {
 
 }
 
+void finish_fault_hook(unsigned long ip, unsigned long parent_ip,
+                   struct ftrace_ops *op, ftrace_regs_ptr regs);
+
 static int __init mod_init(void) {
 
   SAYF("Loading AFL++ snapshot LKM");
@@ -274,6 +277,14 @@ static int __init mod_init(void) {
     return -ENOENT;
 
   }
+
+  // if (!try_hook("finish_fault", &finish_fault_hook)) {
+  //       FATAL("Unable to hook handle_pte_fault");
+
+  //   unhook_all();
+  //   // unpatch_syscall_table();
+  //   return -ENOENT;
+  // }
 
   // initialize snapshot non-exported funcs
   return snapshot_initialize_k_funcs();

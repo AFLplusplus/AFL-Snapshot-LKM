@@ -128,6 +128,7 @@ struct snapshot_page {
   bool has_been_copied;
   bool has_had_pte;
   bool dirty;
+  bool in_dirty_list;
 
   struct hlist_node next;
 
