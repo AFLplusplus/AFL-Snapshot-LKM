@@ -4,7 +4,7 @@
 #include "snapshot.h"
 
 int exit_hook(unsigned long ip, unsigned long parent_ip,
-                   struct ftrace_ops *op, struct ftrace_regs *regs) {
+                   struct ftrace_ops *op, ftrace_regs_ptr regs) {
   clean_snapshot();
 
   return 0;
