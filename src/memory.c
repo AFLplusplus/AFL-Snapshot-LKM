@@ -542,8 +542,8 @@ void recover_memory_snapshot(struct task_data *data) {
       WARNF("0x%016lx: sp->in_dirty_list = false, but we just encountered it in dirty list!?", sp->page_base);
     }
     sp->in_dirty_list = false;
-    if (ptr->next == ptr || ptr->prev == ptr || ptr->prev == ptr->next) {
-      WARNF("0x%016lx: DETECTED CIRCLE IN DIRTY LIST: ptr: %px, ptr->next: %px", sp->page_base, &ptr, ptr->next);
+    if (ptr->next == ptr || ptr->prev == ptr) {
+      WARNF("0x%016lx: DETECTED CYCLE IN DIRTY LIST: ptr: %px, ptr->next: %px", sp->page_base, &ptr, ptr->next);
       break;
     }
   }
@@ -673,7 +673,7 @@ int wp_page_hook(unsigned long ip, unsigned long parent_ip,
 
   ss_page->dirty = true;
   if (ss_page->in_dirty_list) {
-    WARNF("0x%016lx: Adding page to dirty list, but it's already there???", ss_page->page_base);
+    WARNF("0x%016lx: Adding page to dirty list, but it's already there??? (dirty: %d, copied: %d)", ss_page->page_base, ss_page->dirty, ss_page->has_been_copied);
   } else {
     ss_page->in_dirty_list = true;
     list_add_tail(&ss_page->dirty_list, &data->ss.dirty_pages);
@@ -795,7 +795,7 @@ int do_anonymous_hook(unsigned long ip, unsigned long parent_ip,
   ss_page->has_had_pte = true;
   if (is_snapshot_page_none_pte(ss_page)) {
     if (ss_page->in_dirty_list) {
-      WARNF("0x%016lx: Adding page to dirty list, but it's already there???", ss_page->page_base);
+      WARNF("0x%016lx: Adding page to dirty list, but it's already there??? (dirty: %d, copied: %d)", ss_page->page_base, ss_page->dirty, ss_page->has_been_copied);
     } else {
       ss_page->in_dirty_list = true;
       list_add_tail(&ss_page->dirty_list, &data->ss.dirty_pages);
