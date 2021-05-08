@@ -525,7 +525,7 @@ void recover_memory_snapshot(struct task_data *data) {
 
       }
 
-    } else if (is_snapshot_page_private(sp)) {
+    // } else if (is_snapshot_page_private(sp)) {
 
       // private page that has not been captured
       // still write protected
