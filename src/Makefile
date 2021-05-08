@@ -46,10 +46,9 @@ endif
 LINUX_DIR ?= /lib/modules/$(shell uname -r)/build
 
 .PHONY: all
+# 	env ARCH='$(ARCH)' LINUX_SYSTEM_MAP='$(LINUX_SYSTEM_MAP)' python3 lookup_symbols.py
 
 all:
-	env ARCH='$(ARCH)' LINUX_SYSTEM_MAP='$(LINUX_SYSTEM_MAP)' python3 lookup_symbols.py
-
 	$(MAKE) -C '$(LINUX_DIR)' M='$(M)' modules
 
 clean:

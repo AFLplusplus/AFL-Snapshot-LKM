@@ -13,6 +13,8 @@ except:
 
 system_map = map(lambda x: x.split(), fd.read().split('\n'))
 
+# print("system_map:", list(system_map))
+
 register_chrdev_region = None
 sys_call_table = None
 sys_read = None

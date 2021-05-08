@@ -17,7 +17,8 @@
 #include "hook.h"       // function hooking
 #include "snapshot.h"   // main implementation
 #include "debug.h"
-#include "symbols.h"
+// #include "symbols.h"
+#include "ftrace_helper.h"
 
 #include "afl_snapshot.h"
 
@@ -129,7 +130,7 @@ static struct file_operations dev_fops = {
 
 };
 
-#ifdef ARCH_HAS_SYSCALL_WRAPPER
+#ifdef CONFIG_ARCH_HAS_SYSCALL_WRAPPER
 typedef int (*syscall_handler_t)(struct pt_regs *);
 
 // The original syscall handler that we removed to override exit_group()
@@ -144,6 +145,16 @@ syscall_handler_t orig_sct_exit_group = NULL;
 
 asmlinkage int sys_exit_group(struct pt_regs *regs) {
 
+  // SAYF("hooked sys_exit_group(%p)\n", regs);
+  // enum show_regs_mode print_kernel_regs;
+
+	// show_regs_print_info(LOGLEVEL_INFO);
+
+	// print_kernel_regs = user_mode(regs) ? SHOW_REGS_USER : SHOW_REGS_ALL;
+	// __show_regs(regs, print_kernel_regs, LOGLEVEL_INFO);
+  // int ret = exit_snapshot();
+  // SAYF("exit_snapshot() = %d\n", ret);
+  // return orig_sct_exit_group(regs);
   if (exit_snapshot()) return orig_sct_exit_group(regs);
 
   return 0;
@@ -163,84 +174,20 @@ asmlinkage long sys_exit_group(int error_code) {
 
 }
 #endif
+
+static struct ftrace_hook syscall_hooks[] = {
+    SYSCALL_HOOK("sys_exit_group", sys_exit_group, &orig_sct_exit_group),
+};
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,8,0) /* rename since Linux 5.8 */
 #define probe_kernel_read copy_from_kernel_nofault
 #endif
 
-static void **get_syscall_table(void) {
-
-  void **syscall_table = NULL;
-
-  syscall_table = (void**)SYMADDR_sys_call_table;
-
-  if (syscall_table) { return syscall_table; }
-
-  int                i;
-  unsigned long long s0 = SYMADDR_sys_read;
-  unsigned long long s1 = SYMADDR_sys_read;
-
-  unsigned long long *data =
-      (unsigned long long *)(SYMADDR__etext & ~0x7);
-  for (i = 0; (unsigned long long)(&data[i]) < ULLONG_MAX; i++) {
-
-    unsigned long long d;
-    // use probe_kernel_read so we don't fault
-    if (probe_kernel_read(&d, &data[i], sizeof(d))) { continue; }
-
-    if (d == s0 && data[i + 1] == s1) {
-
-      syscall_table = (void **)(&data[i]);
-      break;
-
-    }
-
-  }
-
-  return syscall_table;
-
-}
-
-static void _write_cr0(unsigned long val) {
-
-  asm volatile("mov %0,%%cr0" : "+r"(val));
-
-}
-
-static void enable_write_protection(void) {
-
-  _write_cr0(read_cr0() | (1 << 16));
-
-}
-
-static void disable_write_protection(void) {
-
-  _write_cr0(read_cr0() & (~(1 << 16)));
-
-}
-
-static void **syscall_table_ptr;
-
-static void patch_syscall_table(void) {
-
-  disable_write_protection();
-  orig_sct_exit_group = syscall_table_ptr[__NR_exit_group];
-  syscall_table_ptr[__NR_exit_group] = &sys_exit_group;
-  enable_write_protection();
-
-}
-
-static void unpatch_syscall_table(void) {
-
-  disable_write_protection();
-  syscall_table_ptr[__NR_exit_group] = orig_sct_exit_group;
-  enable_write_protection();
-
-}
-
+// TODO(galli-leo): we should be able to just use kallsyms_lookup_name now.
 int snapshot_initialize_k_funcs() {
 
-  k_flush_tlb_mm_range = (void *)SYMADDR_flush_tlb_mm_range;
-  k_zap_page_range = (void *)SYMADDR_zap_page_range;
+  k_flush_tlb_mm_range = (void *)kallsyms_lookup_name("flush_tlb_mm_range");
+  k_zap_page_range = (void *)kallsyms_lookup_name("zap_page_range");
 
   if (!k_flush_tlb_mm_range || !k_zap_page_range) { return -ENOENT; }
 
@@ -249,6 +196,9 @@ int snapshot_initialize_k_funcs() {
   return 0;
 
 }
+
+void finish_fault_hook(unsigned long ip, unsigned long parent_ip,
+                   struct ftrace_ops *op, ftrace_regs_ptr regs);
 
 static int __init mod_init(void) {
 
@@ -291,22 +241,16 @@ static int __init mod_init(void) {
 
   SAYF("The major device number is %d", mod_major_num);
 
-  // syscall_table overwrites
-  syscall_table_ptr = get_syscall_table();
-  if (!syscall_table_ptr) {
-
-    FATAL("Unable to locate syscall_table");
-    return -ENOENT;
-
-  }
-
-  patch_syscall_table();
+  int err;
+  err = fh_install_hooks(syscall_hooks, ARRAY_SIZE(syscall_hooks));
+  if(err)
+      return err;
 
   // func hooks
   if (!try_hook("do_wp_page", &wp_page_hook)) {
 
     FATAL("Unable to hook do_wp_page");
-    unpatch_syscall_table();
+    // unpatch_syscall_table();
 
     return -ENOENT;
 
@@ -317,20 +261,30 @@ static int __init mod_init(void) {
     FATAL("Unable to hook page_add_new_anon_rmap");
 
     unhook_all();
-    unpatch_syscall_table();
+    // unpatch_syscall_table();
     return -ENOENT;
 
   }
+
+  // return 0;
 
   if (!try_hook("do_exit", &exit_hook)) {
 
     FATAL("Unable to hook do_exit");
 
     unhook_all();
-    unpatch_syscall_table();
+    // unpatch_syscall_table();
     return -ENOENT;
 
   }
+
+  // if (!try_hook("finish_fault", &finish_fault_hook)) {
+  //       FATAL("Unable to hook handle_pte_fault");
+
+  //   unhook_all();
+  //   // unpatch_syscall_table();
+  //   return -ENOENT;
+  // }
 
   // initialize snapshot non-exported funcs
   return snapshot_initialize_k_funcs();
@@ -349,7 +303,7 @@ static void __exit mod_exit(void) {
   unregister_chrdev(mod_major_num, DEVICE_NAME);
 
   unhook_all();
-  unpatch_syscall_table();
+  fh_remove_hooks(syscall_hooks, ARRAY_SIZE(syscall_hooks));
 
 }
 

@@ -292,6 +292,8 @@ out:
 
 }
 
+// TODO: This seems broken?
+// If I have a page that is right below the page of the stack, then it will count as a stack page.
 inline bool is_stack(struct vm_area_struct *vma) {
 
   return vma->vm_start <= vma->vm_mm->start_stack &&
@@ -305,10 +307,13 @@ void take_memory_snapshot(struct task_data *data) {
   unsigned long          addr;
 
   get_cpu_var(last_task) = NULL;
-  put_cpu_var(last_task);
   get_cpu_var(last_data) = NULL;
+  put_cpu_var(last_task);
   put_cpu_var(last_data);
 
+  // Only do loops if DBG_PRINT actually does something.
+  // Not sure if compiler would be smart enough to eliminate these anyways.
+  #if DEBUG
   struct vmrange_node *n = data->allowlist;
   while (n) {
 
@@ -324,6 +329,7 @@ void take_memory_snapshot(struct task_data *data) {
     n = n->next;
 
   }
+  #endif
 
   do {
 
@@ -332,8 +338,9 @@ void take_memory_snapshot(struct task_data *data) {
       add_snapshot_vma(data, pvma->vm_start, pvma->vm_end);
 
     // We only care about writable pages. Shared memory pages are skipped
-    // if notsack is specified, skip if this this the stack
+    // if nostack is specified, skip if this this the stack
     // Otherwise, look into the allowlist
+    // SAYF("Considering: 0x%016lx - 0x%016lx (stack: %d)", pvma->vm_start, pvma->vm_end, is_stack(pvma));
     if (((pvma->vm_flags & VM_WRITE) && !(pvma->vm_flags & VM_SHARED) &&
          !((data->config & AFL_SNAPSHOT_NOSTACK) && is_stack(pvma))) ||
         intersect_allowlist(pvma->vm_start, pvma->vm_end)) {
@@ -358,7 +365,6 @@ void take_memory_snapshot(struct task_data *data) {
     pvma = pvma->vm_next;
 
   } while (pvma != NULL);
-
 }
 
 void munmap_new_vmas(struct task_data *data) {
@@ -458,7 +464,6 @@ void do_recover_page(struct snapshot_page *sp) {
       "0x%08lx\n",
       (unsigned long)sp->page_data, (unsigned long)sp->page_base,
       sp->page_prot);
-
   if (copy_to_user((void __user *)sp->page_base, sp->page_data, PAGE_SIZE) != 0)
     DBG_PRINT("incomplete copy_to_user\n");
   sp->dirty = false;
@@ -483,10 +488,20 @@ void recover_memory_snapshot(struct task_data *data) {
   pte_t *               pte, entry;
   int                   i;
 
+  int count = 0;
+
   if (data->config & AFL_SNAPSHOT_MMAP) munmap_new_vmas(data);
-
+  // Instead of iterating over all pages in the snapshot and then restoring the dirty ones,
+  // we can save a lot of computing time by keeping a list of only dirty pages.
+  // Since we know exactly when pages match the conditions below, we can just insert them into the dirty list then.
+  // This had a massive boost on performance for me, >50%. (Might be more or less depending on a few factors).
+  //
+  // original loop below
   hash_for_each(data->ss.ss_page, i, sp, next) {
-
+  struct list_head* ptr;
+  // for (ptr = data->ss.dirty_pages.next; ptr != &data->ss.dirty_pages; ptr = ptr->next){
+    count++;
+    // sp = list_entry(ptr, struct snapshot_page, dirty_list);
     if (sp->dirty &&
         sp->has_been_copied) {  // it has been captured by page fault
 
@@ -523,9 +538,21 @@ void recover_memory_snapshot(struct task_data *data) {
       sp->has_had_pte = false;
 
     }
-
+    if (!sp->in_dirty_list) {
+      // WARNF("0x%016lx: sp->in_dirty_list = false, but we just encountered it in dirty list!?", sp->page_base);
+    }
+    sp->in_dirty_list = false;
+    // if (ptr->next == ptr || ptr->prev == ptr) {
+    //   WARNF("0x%016lx: DETECTED CYCLE IN DIRTY LIST: ptr: %px, ptr->next: %px", sp->page_base, &ptr, ptr->next);
+    //   break;
+    // }
   }
 
+  DBG_PRINT("HAD %d dirty pages!", count);
+
+  // haha this is really dumb
+  // surely this will not come back to bite me later, right??
+  INIT_LIST_HEAD(&data->ss.dirty_pages);
 }
 
 void clean_snapshot_vmas(struct task_data *data) {
@@ -551,24 +578,36 @@ void clean_memory_snapshot(struct task_data *data) {
   struct snapshot_page *sp;
   int                   i;
 
-  if (get_cpu_var(last_task) == current) {
+  struct task_struct* ltask = get_cpu_var(last_task);
+  if (ltask == current) {
 
     get_cpu_var(last_task) = NULL;
     get_cpu_var(last_data) = NULL;
-
+    put_cpu_var(last_task);
+    put_cpu_var(last_data);
   }
-
   put_cpu_var(last_task);
-  put_cpu_var(last_data);
 
   if (data->config & AFL_SNAPSHOT_MMAP) clean_snapshot_vmas(data);
 
+  // we need to always be a single item behind, otherwise we have a use after free!
+  struct snapshot_page *prev_sp = NULL;
+
   hash_for_each(data->ss.ss_page, i, sp, next) {
+    if (prev_sp != NULL) {
+      hash_del(&prev_sp->next);
+      kfree(prev_sp);
+      prev_sp = NULL;
+    }
 
     if (sp->page_data != NULL) kfree(sp->page_data);
+    prev_sp = sp;
+  }
 
-    kfree(sp);
-
+  if (prev_sp != NULL) {
+    hash_del(&prev_sp->next);
+    kfree(prev_sp);
+    prev_sp = NULL;
   }
 
 }
@@ -579,7 +618,8 @@ static long return_0_stub_func(void) {
 
 }
 
-int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
+int wp_page_hook(unsigned long ip, unsigned long parent_ip,
+                   struct ftrace_ops *op, ftrace_regs_ptr regs) {
 
   struct vm_fault *     vmf;
   struct mm_struct *    mm;
@@ -589,26 +629,30 @@ int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
   pte_t                 entry;
   char *                vfrom;
 
-  vmf = (struct vm_fault *)regs->di;
+  struct pt_regs* pregs = ftrace_get_regs(regs);
+
+  vmf = (struct vm_fault *)pregs->di;
   mm = vmf->vma->vm_mm;
   ss_page = NULL;
 
-  if (get_cpu_var(last_task) == mm->owner) {
+  struct task_struct* ltask = get_cpu_var(last_task);
+  if (ltask == mm->owner) {
 
     // fast path
     data = get_cpu_var(last_data);
-
+    put_cpu_var(last_task);
+    put_cpu_var(last_data);
   } else {
 
     // query the radix tree
     data = get_task_data(mm->owner);
     get_cpu_var(last_task) = mm->owner;
     get_cpu_var(last_data) = data;
+    put_cpu_var(last_task);
+    put_cpu_var(last_task);
+    put_cpu_var(last_data);
 
   }
-
-  put_cpu_var(last_task);
-  put_cpu_var(last_data);  // not needed?
 
   if (data && have_snapshot(data)) {
 
@@ -628,9 +672,15 @@ int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
   if (ss_page->dirty) return 0;
 
   ss_page->dirty = true;
+  if (ss_page->in_dirty_list) {
+    WARNF("0x%016lx: Adding page to dirty list, but it's already there??? (dirty: %d, copied: %d)", ss_page->page_base, ss_page->dirty, ss_page->has_been_copied);
+  } else {
+    ss_page->in_dirty_list = true;
+    list_add_tail(&ss_page->dirty_list, &data->ss.dirty_pages);
+  }
 
   DBG_PRINT("wp_page_hook 0x%08lx", vmf->address);
-
+  // dump_stack();
   /* the page has been copied?
    * the page becomes COW page again. we do not need to take care of it.
    */
@@ -675,7 +725,7 @@ int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
     pte_unmap_unlock(vmf->pte, vmf->ptl);
 
     // skip original function
-    regs->ip = (long unsigned int)&return_0_stub_func;
+    pregs->ip = (long unsigned int)&return_0_stub_func;
     return 1;
 
   }
@@ -686,7 +736,8 @@ int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
 
 // actually hooking page_add_new_anon_rmap, but we really only care about calls
 // from do_anonymous_page
-int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs) {
+int do_anonymous_hook(unsigned long ip, unsigned long parent_ip,
+                   struct ftrace_ops *op, ftrace_regs_ptr regs) {
 
   struct vm_area_struct *vma;
   struct mm_struct *     mm;
@@ -694,27 +745,31 @@ int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs) {
   struct snapshot_page * ss_page;
   unsigned long          address;
 
-  vma = (struct vm_area_struct *)regs->si;
-  address = regs->dx;
+  struct pt_regs* pregs = ftrace_get_regs(regs);
+
+  vma = (struct vm_area_struct *)pregs->si;
+  address = pregs->dx;
   mm = vma->vm_mm;
   ss_page = NULL;
 
-  if (get_cpu_var(last_task) == mm->owner) {
+  struct task_struct* ltask = get_cpu_var(last_task);
+  if (ltask == mm->owner) {
 
     // fast path
     data = get_cpu_var(last_data);
-
+    put_cpu_var(last_task);
+    put_cpu_var(last_data);
   } else {
 
     // query the radix tree
     data = get_task_data(mm->owner);
     get_cpu_var(last_task) = mm->owner;
     get_cpu_var(last_data) = data;
+    put_cpu_var(last_task);
+    put_cpu_var(last_task);
+    put_cpu_var(last_data);
 
   }
-
-  put_cpu_var(last_task);
-  put_cpu_var(last_data);  // not needed?
 
   if (data && have_snapshot(data)) {
 
@@ -734,11 +789,86 @@ int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs) {
   }
 
   DBG_PRINT("do_anonymous_page 0x%08lx", address);
+  // dump_stack();
 
   // HAVE PTE NOW
   ss_page->has_had_pte = true;
+  if (is_snapshot_page_none_pte(ss_page)) {
+    if (ss_page->in_dirty_list) {
+      WARNF("0x%016lx: Adding page to dirty list, but it's already there??? (dirty: %d, copied: %d)", ss_page->page_base, ss_page->dirty, ss_page->has_been_copied);
+    } else {
+      ss_page->in_dirty_list = true;
+      list_add_tail(&ss_page->dirty_list, &data->ss.dirty_pages);
+    }
+  }
 
   return 0;
 
 }
 
+void finish_fault_hook(unsigned long ip, unsigned long parent_ip,
+                   struct ftrace_ops *op, ftrace_regs_ptr regs)
+{
+  struct pt_regs* pregs = ftrace_get_regs(regs);
+  struct vm_fault *vmf = (struct vm_fault*)pregs->di;
+  struct vm_area_struct *vma;
+  struct mm_struct *     mm;
+  struct task_data *     data;
+  struct snapshot_page * ss_page;
+  unsigned long          address;
+
+  vma = vmf->vma;
+  address = vmf->address;
+
+  struct task_struct* ltask = get_cpu_var(last_task);
+  if (ltask == mm->owner) {
+
+    // fast path
+    data = get_cpu_var(last_data);
+    put_cpu_var(last_task);
+    put_cpu_var(last_data);
+  } else {
+
+    // query the radix tree
+    data = get_task_data(mm->owner);
+    get_cpu_var(last_task) = mm->owner;
+    get_cpu_var(last_data) = data;
+    put_cpu_var(last_task);
+    put_cpu_var(last_task);
+    put_cpu_var(last_data);
+
+  }
+
+  if (data && have_snapshot(data)) {
+
+    ss_page = get_snapshot_page(data, address & PAGE_MASK);
+
+  } else {
+
+    return;
+
+  }
+
+  if (!ss_page) {
+
+    /* not a snapshot'ed page */
+    return;
+
+  }
+
+  DBG_PRINT("finish_fault 0x%08lx", address);
+  dump_stack();
+
+  // HAVE PTE NOW
+  ss_page->has_had_pte = true;
+  if (is_snapshot_page_none_pte(ss_page)) {
+    if (ss_page->in_dirty_list) {
+      WARNF("0x%016lx: Adding page to dirty list, but it's already there???", ss_page->page_base);
+    } else {
+      ss_page->in_dirty_list = true;
+      list_add_tail(&ss_page->dirty_list, &data->ss.dirty_pages);
+    }
+  }
+
+  return;
+}
