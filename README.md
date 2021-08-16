@@ -99,7 +99,7 @@ Remove the snapshot, you can not call `afl_snapshot_take` in another program poi
  + support for multithreaded applications
  + file descriptors state restore (lseek)
  + switch from ftrace to jmp for hooking (faster)
- + add support of task control from other task (can be achived via find_vpid(pid))
+ + add support of tasks snapshot control from other process (can be achived via find_vpid(pid))
 
 ### Chandgelog
 
@@ -108,4 +108,6 @@ v1.1.0:
 +	Add reflective symbols extractor (work on 5.10+)
 +	Fix horrible bug which fault on do_exit_group() because of invalid return size (long/int) -- try make it universal (reflective)
 +	Minimal security fixes like do NOT trying to insert LKM after building...
-v1.0.0 -- Initial release
+
+v1.0.0:
++	Initial release
