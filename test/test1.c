@@ -12,7 +12,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "libaflsnapshot.h"
+#include "../libaflsnapshot.h"
 
 // gcc -I ../include -g test2.c ../lib/libaflsnapshot.o -o test2
 
@@ -29,17 +29,22 @@ void test2() {
 
 loop:
   memset(chunk, 0x43, 0x1001);
-  fprintf(stdf, "*chunk = %#llx\n", *(uint64_t*)chunk);
+  fprintf(stdf, "*chunk = %#lx\n", *(uint64_t*)chunk);
   *none_addr += 1;
-  fprintf(stdf, ">> %d     %p = %#llx    %p = %#llx\n", pippo, none_addr, *none_addr, shm_addr, *shm_addr);
+  fprintf(stdf, ">> %d     %p = %#x    %p = %#x\n", pippo, none_addr, *none_addr, shm_addr, *shm_addr);
   *shm_addr = 0xdeadbeef;
   ++pippo;
   memset(chunk, 0x44, 0x1001);
-  fprintf(stdf, "*chunk = %#llx\n", *(uint64_t*)chunk);
+  fprintf(stdf, "*chunk = %#lx\n", *(uint64_t*)chunk);
   afl_snapshot_restore();
-  fprintf(stdf, "*chunk = %#llx\n", *(uint64_t*)chunk);
+  fprintf(stdf, "*chunk = %#lx\n", *(uint64_t*)chunk);
   if( *none_addr > 0x10000 ) exit(0x00);
   goto loop;
+
+}
+
+void test3(){
+  s = socket
 
 }
 
@@ -63,12 +68,13 @@ int main() {
   puts("6");
   chunk = malloc(0x1001);
   memset(chunk, 0x41, 0x1001);
-  fprintf(stdf, "*chunk = %#llx\n", *(uint64_t*)chunk);
+  fprintf(stdf, "*chunk = %#lx\n", *(uint64_t*)chunk);
   afl_snapshot_include_vmrange(chunk, chunk+0x1001);
   memset(chunk, 0x42, 0x1001);
-  fprintf(stdf, "*chunk = %#llx\n", *(uint64_t*)chunk);
+  fprintf(stdf, "*chunk = %#lx\n", *(uint64_t*)chunk);
   puts("7");
-  test2();
+  //test2();
+  test3();
 
   return 0;
 

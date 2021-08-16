@@ -27,8 +27,10 @@
 #define CLASS_NAME "afl_snapshot"
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("andreafioraldi && Th3C4t");
-MODULE_DESCRIPTION("Fast process snapshots for fuzzing");
+MODULE_AUTHOR("kallsyms && andreafioraldi");
+MODULE_DESCRIPTION("Fast process snapshots for fuzzing\n"
+		"thx to xcellerator for ftrace helper funcs\n"
+		"adoptation by Th3C4t\n");
 MODULE_VERSION("1.1.0");
 #ifndef __used
 # define __used		__attribute__((used))

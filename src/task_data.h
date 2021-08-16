@@ -54,13 +54,13 @@ static inline void set_snapshot(struct task_data *data) {
 
 static inline bool have_snapshot(struct task_data *data) {
 
-  return !!(data->ss.status & SNAPSHOT_MADE);
+  return (data->ss.status & SNAPSHOT_MADE) != 0;
 
 }
 
 static inline bool had_snapshot(struct task_data *data) {
 
-  return !!(data->ss.status & SNAPSHOT_HAD);
+  return (data->ss.status & SNAPSHOT_HAD) != 0;
 
 }
 
