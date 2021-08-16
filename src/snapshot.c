@@ -3,12 +3,12 @@
 #include "task_data.h"
 #include "snapshot.h"
 
-int exit_hook(struct kprobe *p, struct pt_regs *regs) {
-
+/*int exit_hook(struct kprobe *p, struct pt_regs *regs) {*/
+asmlinkage long exit_hook(long rdi) {
   clean_snapshot();
-
-  return 0;
-
+//  printk("do_exit_orig == %#llx\n", (long*)do_exit_orig);
+  do_exit_orig(rdi); /* no return */
+  return ((long(*)())(0xdeadbeef))(); /* to keep gcc happy */
 }
 
 void initialize_snapshot(struct task_data *data, int config) {
@@ -86,7 +86,7 @@ void recover_snapshot(void) {
 
 }
 
-int exit_snapshot(void) {
+long exit_snapshot(void) {
 
   struct task_data *data = get_task_data(current);
   if (data && (data->config & AFL_SNAPSHOT_EXIT) && have_snapshot(data)) {
@@ -102,6 +102,7 @@ int exit_snapshot(void) {
 
 }
 
+/* :TODO: this should be static inline at least? */
 void clean_snapshot(void) {
 
   struct task_data *data = get_task_data(current);

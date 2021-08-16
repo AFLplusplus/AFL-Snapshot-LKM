@@ -1,9 +1,8 @@
+#ifdef USE_KPROBES
 #include <linux/kernel.h>
 #include <linux/kprobes.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-
-// TODO(andrea) switch from Kprobes to Ftrace
 
 struct hook {
 
@@ -15,8 +14,8 @@ struct hook {
 LIST_HEAD(hooks);
 
 int try_hook(const char *func_name, void *handler) {
-
-  struct hook *hook = kmalloc(sizeof(struct hook), GFP_KERNEL | __GFP_ZERO);
+  /* Sometimes non-atomic allocations can fall, when calling from userspace (init) context */
+  struct hook *hook = kmalloc(sizeof(struct hook), GFP_ATOMIC | __GFP_ZERO);
   INIT_LIST_HEAD(&hook->l);
   hook->kp.symbol_name = func_name;
   hook->kp.pre_handler = handler;
@@ -53,3 +52,4 @@ void unhook_all(void) {
   }
 
 }
+#endif

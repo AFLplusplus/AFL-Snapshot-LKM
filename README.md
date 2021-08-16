@@ -32,9 +32,14 @@ however adding this snapshot module will still be a small improvement.
 
 ## Usage
 
-Load it using `./load.sh`, unload it using `./unload.sh`.
+!WARNING! This LKM is in alpha testing state. DO NOT LOAD IT ON YOU'RE REAL MACHINE WITHOUT TESTING!!!
+!DANGER!! It can crash the kernel and you will lose all you're unsaved data (open tabs, notes, etc.)
 
-`./load.sh` will compile the module for you, you need also python3.
+At the moment it builds and run ok on at least:
+Debian buster Linux stand 4.19.160 #2 SMP Mon Dec 28 11:58:39 EET 2020 x86_64 GNU/Linux
+Debian bullseye Linux l0c4lh05t 5.10.24 #8 SMP Sun Jun 13 01:31:09 EEST 2021 x86_64 GNU/Linux
+Both on real hardware and under qemu vm.
+
 
 While the module is loaded, [AFL++](https://github.com/AFLplusplus/AFLplusplus)
 will detect it and automatically switch from fork() to snapshot mode.
@@ -93,5 +98,14 @@ Remove the snapshot, you can not call `afl_snapshot_take` in another program poi
 
  + support for multithreaded applications
  + file descriptors state restore (lseek)
- + switch from kprobe to ftrace for hooking (faster)
- 
+ + switch from ftrace to jmp for hooking (faster)
+ + add support of task control from other task (can be achived via find_vpid(pid))
+
+### Chandgelog
+
+v1.1.0:
+	Add ftrace support
+	Add reflective symbols extractor (work on 5.10+)
+	Fix horrible bug which fault on do_exit_group() because of invalid return size (long/int) -- try make it universal (reflective)
+	Minimal security fixes like do NOT trying to insert LKM after building...
+v1.0.0 -- Initial release
