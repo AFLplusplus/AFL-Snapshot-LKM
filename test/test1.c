@@ -20,30 +20,31 @@ int* shm_addr;
 int* none_addr;
 void *chunk;
 int pippo = 1;
+FILE *stdf = NULL;
 
 void test2() {
   *shm_addr = 0xffffffff;
-  if (afl_snapshot_take(AFL_SNAPSHOT_NOSTACK) == 1)
-    fprintf(stderr, "first time!\n");
+  if (afl_snapshot_take( AFL_SNAPSHOT_REGS ) == 1)
+    fprintf(stdf, "first time!\n");
 
 loop:
   memset(chunk, 0x43, 0x1001);
-  fprintf(stderr, "*chunk = %#llx\n", *(uint64_t*)chunk);
+  fprintf(stdf, "*chunk = %#llx\n", *(uint64_t*)chunk);
   *none_addr += 1;
-  fprintf(stderr, ">> %d     %p = %#llx    %p = %#llx\n", pippo, none_addr, *none_addr, shm_addr, *shm_addr);
+  fprintf(stdf, ">> %d     %p = %#llx    %p = %#llx\n", pippo, none_addr, *none_addr, shm_addr, *shm_addr);
   *shm_addr = 0xdeadbeef;
   ++pippo;
   memset(chunk, 0x44, 0x1001);
-  fprintf(stderr, "*chunk = %#llx\n", *(uint64_t*)chunk);
+  fprintf(stdf, "*chunk = %#llx\n", *(uint64_t*)chunk);
   afl_snapshot_restore();
-  fprintf(stderr, "*chunk = %#llx\n", *(uint64_t*)chunk);
-  if( *none_addr > 0x100 ) exit(0x00);
+  fprintf(stdf, "*chunk = %#llx\n", *(uint64_t*)chunk);
+  if( *none_addr > 0x10000 ) exit(0x00);
   goto loop;
 
 }
 
 int main() {
-
+  stdf = fopen("/dev/shm/log", "a");
   afl_snapshot_init();
   puts("1");
   shm_addr = mmap(0, 0x10000, PROT_READ | PROT_WRITE | PROT_EXEC,
@@ -62,10 +63,10 @@ int main() {
   puts("6");
   chunk = malloc(0x1001);
   memset(chunk, 0x41, 0x1001);
-  fprintf(stderr, "*chunk = %#llx\n", *(uint64_t*)chunk);
+  fprintf(stdf, "*chunk = %#llx\n", *(uint64_t*)chunk);
   afl_snapshot_include_vmrange(chunk, chunk+0x1001);
   memset(chunk, 0x42, 0x1001);
-  fprintf(stderr, "*chunk = %#llx\n", *(uint64_t*)chunk);
+  fprintf(stdf, "*chunk = %#llx\n", *(uint64_t*)chunk);
   puts("7");
   test2();
 

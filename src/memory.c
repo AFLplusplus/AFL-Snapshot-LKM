@@ -137,7 +137,7 @@ pte_t *memwalk(uint64_t addr, struct mm_struct *mm){
                                 }
                         }
                 }
-        }
+        } return 0x00;
 }
 
 // TODO lock thee lists

@@ -16,14 +16,16 @@ endif
 obj-m += afl_snapshot.o
 afl_snapshot-objs := memory.o files.o threads.o task_data.o snapshot.o hook.o module.o
 
+
 ccflags-y := \
-  -g3 -ggdb3 \
   -std=gnu99 \
   -Wframe-larger-than=100000000 \
   -I$(M)/../include \
   -Wno-declaration-after-statement \
   -fdata-sections \
-  $(CCFLAGS)
+  $(CCFLAGS) \
+  -O2
+#  -g3 -ggdb3 
 
 ifdef DEBUG
   ccflags-y += -DDEBUG
