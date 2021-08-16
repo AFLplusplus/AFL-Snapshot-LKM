@@ -43,11 +43,6 @@ loop:
 
 }
 
-void test3(){
-  s = socket
-
-}
-
 int main() {
   stdf = fopen("/dev/shm/log", "a");
   afl_snapshot_init();
