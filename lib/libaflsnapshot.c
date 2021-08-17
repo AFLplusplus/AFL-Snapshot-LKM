@@ -29,9 +29,11 @@ void afl_snapshot_include_vmrange(void *start, void *end) {
 
 }
 
-int afl_snapshot_take(int config) {
+int afl_snapshot_take(int pid, unsigned long config) {
 
-  return ioctl(dev_fd, AFL_SNAPSHOT_IOCTL_TAKE, config);
+  /* high half of config can't be used! */
+  if(config >> 0x20) return -1;
+  return ioctl(dev_fd, AFL_SNAPSHOT_IOCTL_TAKE, (((long)pid) << 0x20) | config);
 
 }
 

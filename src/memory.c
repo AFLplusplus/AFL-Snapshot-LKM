@@ -5,7 +5,8 @@
 
 static DEFINE_PER_CPU(struct task_struct *, last_task) = NULL;
 static DEFINE_PER_CPU(struct task_data *, last_data) = NULL;
-
+extern long (*do_wp_page_orig)(long);
+extern long (*page_add_new_anon_rmap_orig)(long,long,long,long);
 pmd_t *get_page_pmd(unsigned long addr) {
 
   pgd_t *pgd;
@@ -66,7 +67,7 @@ pte_t *walk_page_table(unsigned long addr) {
   pgd = pgd_offset(mm, addr);
   if (pgd_none(*pgd) || pgd_bad(*pgd)) {
 
-    // DBG_PRINT("Invalid pgd.");
+    //DBG_PRINT("Invalid pgd.");
     goto out;
 
   }
@@ -74,7 +75,7 @@ pte_t *walk_page_table(unsigned long addr) {
   p4d = p4d_offset(pgd, addr);
   if (p4d_none(*p4d) || p4d_bad(*p4d)) {
 
-    // DBG_PRINT("Invalid p4d.");
+    //DBG_PRINT("Invalid p4d.");
     goto out;
 
   }
@@ -82,7 +83,7 @@ pte_t *walk_page_table(unsigned long addr) {
   pud = pud_offset(p4d, addr);
   if (pud_none(*pud) || pud_bad(*pud)) {
 
-    // DBG_PRINT("Invalid pud.");
+    //DBG_PRINT("Invalid pud.");
     goto out;
 
   }
@@ -90,7 +91,7 @@ pte_t *walk_page_table(unsigned long addr) {
   pmd = pmd_offset(pud, addr);
   if (pmd_none(*pmd) || pmd_bad(*pmd)) {
 
-    // DBG_PRINT("Invalid pmd.");
+    //DBG_PRINT("Invalid pmd.");
     goto out;
 
   }
@@ -98,7 +99,7 @@ pte_t *walk_page_table(unsigned long addr) {
   ptep = pte_offset_map(pmd, addr);
   if (!ptep) {
 
-    // DBG_PRINT("[NEW] Invalid pte.");
+    //DBG_PRINT("[NEW] Invalid pte.");
     goto out;
 
   }
@@ -106,6 +107,37 @@ pte_t *walk_page_table(unsigned long addr) {
 out:
   return ptep;
 
+}
+/* TODO: Allow control restoring from other task
+ * For example from AFLplusplus, or from forkserver
+***/
+pte_t *memwalk(uint64_t addr, struct mm_struct *mm){
+        pgd_t *pgd;// = 0x01;
+        p4d_t *p4d;// = 0x02;
+        pud_t *pud;// = 0x03;
+        pmd_t *pmd;// = 0x04;
+        pte_t *pte;// = 0x05;
+	//printk("memwalking(%#lx, %#lx\n", addr, mm);
+        pgd = pgd_offset((mm) ?: (current->mm), addr);
+        if(!pgd_none(*pgd) && !pgd_bad(*pgd)){
+                p4d = p4d_offset(pgd, addr);
+                if(!p4d_none(*p4d) && !p4d_bad(*p4d)){
+                        pud = pud_offset(p4d, addr);
+                        if(!pud_none(*pud) && !pud_bad(*pud)){
+                                pmd = pmd_offset(pud, addr);
+                                if(!pmd_none(*pmd) && !pmd_bad(*pmd)){
+                                        pte = pte_offset_map(pmd, addr);
+                                        if(!pte_none(*pte)){
+                                                //printk("pgd = %#llx, p4d = %#llx, pud = %#llx, pmd = %#llx, pte = %#llx\n",
+                                                //        *pgd, *p4d, *pud, *pmd, *pte);
+						return pte;
+                                        } printk("Failed to extract pte of addr+mm\n");
+                                        pte_unmap(pte);
+					return 0x00;
+                                }
+                        }
+                }
+        } return 0x00;
 }
 
 // TODO lock thee lists
@@ -242,7 +274,8 @@ void make_snapshot_page(struct task_data *data, struct mm_struct *mm,
   struct snapshot_page *sp;
   struct page *         page;
 
-  pte = walk_page_table(addr);
+  pte = memwalk(addr, ( data && data->tsk && data->tsk->mm ) ? data->tsk->mm : NULL );
+
   if (!pte) goto out;
 
   page = pte_page(*pte);
@@ -477,7 +510,14 @@ void do_recover_none_pte(struct snapshot_page *sp) {
 }
 
 void recover_memory_snapshot(struct task_data *data) {
-
+  if( !data ){
+      printk("WARNING: recover_memory_snapshot() called with NULL arg!\n");
+      return;
+  }
+  if( !data->tsk ){
+      printk("WARNING in recover_memory_snapshot() arg `data` don't have tsk field!\n");
+      return;
+  }
   struct snapshot_page *sp, *prev_sp = NULL;
   struct mm_struct *    mm = data->tsk->mm;
   pte_t *               pte, entry;
@@ -497,13 +537,14 @@ void recover_memory_snapshot(struct task_data *data) {
       if (pte) {
 
         /* Private rw page */
-        DBG_PRINT("private writable addr: 0x%08lx\n", sp->page_base);
+        DBG_PRINT("private writable addr: %#lx\n", sp->page_base);
         ptep_set_wrprotect(mm, sp->page_base, pte);
         set_snapshot_page_private(sp);
 
         /* flush tlb to make the pte change effective */
         k_flush_tlb_mm_range(mm, sp->page_base, sp->page_base + PAGE_SIZE,
                              PAGE_SHIFT, false);
+
         DBG_PRINT("writable now: %d\n", pte_write(*pte));
 
         pte_unmap(pte);
@@ -573,14 +614,24 @@ void clean_memory_snapshot(struct task_data *data) {
 
 }
 
+/*
 static long return_0_stub_func(void) {
 
   return 0;
 
-}
+}*/
 
-int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
-
+/* do_wp_page got seven args on <= 4.7 kernels...
+ * two args on == 4.8* kernels
+ * and one arg on >= 4.10 kernels...
+ * we can use #define to solve this
+ * or we can make universal, but expensive variant
+ *	and always push seven arguments to original function
+ * or we can just say that for afl-lkm u need 4.10+ kernel...
+***/
+asmlinkage int wp_page_hook(long rdi) {
+//( (( (void(*)() )(0xffffffff810a6140) )))();
+//printk("do_wp_page_orig == %#llx\n", (long*)do_wp_page_orig);
   struct vm_fault *     vmf;
   struct mm_struct *    mm;
   struct task_data *    data;
@@ -589,7 +640,7 @@ int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
   pte_t                 entry;
   char *                vfrom;
 
-  vmf = (struct vm_fault *)regs->di;
+  vmf = (struct vm_fault *)rdi;
   mm = vmf->vma->vm_mm;
   ss_page = NULL;
 
@@ -616,16 +667,16 @@ int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
 
   } else
 
-    return 0;  // continue
+    return do_wp_page_orig(rdi);//0;  // continue
 
   if (!ss_page) {
 
     // not a snapshot'ed page
-    return 0;  // continue
+    return do_wp_page_orig(rdi);//0;  // continue
 
   }
 
-  if (ss_page->dirty) return 0;
+  if (ss_page->dirty) return do_wp_page_orig(rdi);//0;
 
   ss_page->dirty = true;
 
@@ -674,28 +725,31 @@ int wp_page_hook(struct kprobe *p, struct pt_regs *regs) {
 
     pte_unmap_unlock(vmf->pte, vmf->ptl);
 
-    // skip original function
-    regs->ip = (long unsigned int)&return_0_stub_func;
-    return 1;
+    /* // skip original function
+     * regs->ip = (long unsigned int)&return_0_stub_func;
+     * return 1; */
+
+    /* since we using ftrace -- we don't need to touch $rip, yes? */
+    return 0x00;
 
   }
-
-  return 0;  // continue
+  return do_wp_page_orig(rdi);  // continue
 
 }
 
 // actually hooking page_add_new_anon_rmap, but we really only care about calls
 // from do_anonymous_page
-int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs) {
+asmlinkage int do_anonymous_hook(long rdi, long rsi, long rdx, long rcx) {
 
   struct vm_area_struct *vma;
   struct mm_struct *     mm;
   struct task_data *     data;
   struct snapshot_page * ss_page;
   unsigned long          address;
-
-  vma = (struct vm_area_struct *)regs->si;
-  address = regs->dx;
+//((((void(*)())(0xffffffff810a6140))))();
+//printk("page_add_new_anon_rmap_orig == %#llx\n", (long*)page_add_new_anon_rmap_orig);
+  vma = (struct vm_area_struct *)rsi;
+  address = (unsigned)rdx;
   mm = vma->vm_mm;
   ss_page = NULL;
 
@@ -722,14 +776,14 @@ int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs) {
 
   } else {
 
-    return 0;
+    return page_add_new_anon_rmap_orig(rdi, rsi, rdx, rcx);//0;
 
   }
 
   if (!ss_page) {
 
     /* not a snapshot'ed page */
-    return 0;
+    return page_add_new_anon_rmap_orig(rdi, rsi, rdx, rcx);//0;
 
   }
 
@@ -738,7 +792,7 @@ int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs) {
   // HAVE PTE NOW
   ss_page->has_had_pte = true;
 
-  return 0;
+  return page_add_new_anon_rmap_orig(rdi, rsi, rdx, rcx);//0;
 
 }
 

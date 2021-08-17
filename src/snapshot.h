@@ -1,6 +1,6 @@
 #ifndef __AFL_SNAPSHOT_H__
 #define __AFL_SNAPSHOT_H__
-
+#include <linux/kernel.h>
 #include <asm/mmu.h>
 #include <asm/page.h>
 #include <linux/auxvec.h>
@@ -89,8 +89,8 @@
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
 #include <asm/pgtable_types.h>
-#include <asm/tlb.h>
-#include <asm/tlbflush.h>
+//#include <asm/tlb.h>
+//#include <asm/tlbflush.h>
 #include <asm/uaccess.h>
 
 #include "afl_snapshot.h"
@@ -175,8 +175,6 @@ struct snapshot {
 
   struct snapshot_vma *ss_mmap;
 
-  struct pt_regs regs;
-
   DECLARE_HASHTABLE(ss_page, SNAPSHOT_HASHTABLE_SZ);
 
 };
@@ -205,17 +203,18 @@ void recover_threads_snapshot(struct task_data *data);
 
 int snapshot_initialize_k_funcs(void);
 
-int wp_page_hook(struct kprobe *p, struct pt_regs *regs);
-int do_anonymous_hook(struct kprobe *p, struct pt_regs *regs);
-int exit_hook(struct kprobe *p, struct pt_regs *regs);
+int wp_page_hook(long rdi);//(struct kprobe *p, struct pt_regs *regs);
+int do_anonymous_hook(long rdi, long rsi, long rdx, long rcx);//(struct kprobe *p, struct pt_regs *regs);
+long exit_hook(long rdi);//(struct kprobe *p, struct pt_regs *regs);
+extern typeof(&do_exit) do_exit_orig;
 
-int  take_snapshot(int config);
+long  take_snapshot(unsigned long config);
 void recover_snapshot(void);
-void clean_snapshot(void);
-int  exit_snapshot(void);
+inline void clean_snapshot(void);
+long  exit_snapshot(void);
 
 void exclude_vmrange(unsigned long start, unsigned long end);
 void include_vmrange(unsigned long start, unsigned long end);
-
+extern void *k_tasklist_lock;
 #endif
 

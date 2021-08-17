@@ -10,4 +10,5 @@ cd src/
 
 rmmod afl_snapshot
 make
-insmod afl_snapshot.ko && echo Successfully loaded the snapshot module
+echo "DO NOT INSERT THIS LKM IN YOU'RE REAL MACHINE WITHOUT TESTING! YOU CAN LOSE YOU'RE RUNTIME DATA!!!"
+#insmod afl_snapshot.ko && echo Successfully loaded the snapshot module

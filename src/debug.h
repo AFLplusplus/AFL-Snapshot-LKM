@@ -5,7 +5,7 @@
 #include <linux/kern_levels.h>
 
 /* Output macros */
-
+//#define DEBUG DEBUG
 #define HEXDUMP(type, prefix, ptr, size)                 \
   do {                                                   \
                                                          \

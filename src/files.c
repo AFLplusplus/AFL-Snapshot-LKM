@@ -9,7 +9,7 @@ void take_files_snapshot(struct task_data *data) {
   struct fdtable *     fdt = rcu_dereference_raw(files->fdt);
   int                  size, i;
 
-  size = (fdt->max_fds - 1) / BITS_PER_LONG + 1;
+  size = (fdt->max_fds - 1) / BITS_PER_LONG + 1; // NOLINT(cppcoreguidelines-narrowing-conversions)
 
   if (data->snapshot_open_fds == NULL)
     data->snapshot_open_fds =
