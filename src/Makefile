@@ -24,8 +24,7 @@ ccflags-y := \
   -Wno-declaration-after-statement \
   -fdata-sections \
   $(CCFLAGS) \
-  -O2
-#  -g3 -ggdb3 
+  -O0 -g3 -ggdb3
 
 ifdef DEBUG
   ccflags-y += -DDEBUG

@@ -12,7 +12,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "../libaflsnapshot.h"
+#include "../include/libaflsnapshot.h"
 
 // gcc -I ../include -g test2.c ../lib/libaflsnapshot.o -o test2
 
@@ -24,7 +24,7 @@ FILE *stdf = NULL;
 
 void test2() {
   *shm_addr = 0xffffffff;
-  if (afl_snapshot_take( AFL_SNAPSHOT_REGS ) == 1)
+  if (afl_snapshot_take(getpid(), AFL_SNAPSHOT_REGS ) == 1)
     fprintf(stdf, "first time!\n");
 
 loop:
@@ -68,9 +68,7 @@ int main() {
   memset(chunk, 0x42, 0x1001);
   fprintf(stdf, "*chunk = %#lx\n", *(uint64_t*)chunk);
   puts("7");
-  //test2();
-  test3();
-
+  test2();
   return 0;
 
 }

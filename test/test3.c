@@ -154,7 +154,7 @@ void *ThreadMain(void *argv) {
   int      ok = 0x00;
   if (fd < 0) goto fall;
 
-  ok = afl_snapshot_take(AFL_SNAPSHOT_REGS | AFL_SNAPSHOT_FDS |
+  ok = afl_snapshot_take(getpid(), AFL_SNAPSHOT_REGS | AFL_SNAPSHOT_FDS |
                          AFL_SNAPSHOT_MMAP);
 
   printf("snapshot taken %d\n", ok);

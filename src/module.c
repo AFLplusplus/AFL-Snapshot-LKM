@@ -55,6 +55,8 @@ MODULE_VERSION("1.1.0");
 typedef typeof(void *(*)(void *rdi, ...)) func_t;
 func_t	_stop_machine = ((typeof(_stop_machine))&stop_machine);
 func_t	_kallsyms_lookup_name = NULL;
+func_t k_kern_addr_valid = NULL;
+void *k_tasklist_lock = NULL;
 
 void (*k_flush_tlb_mm_range)(struct mm_struct *mm, unsigned long start,
                              unsigned long end, unsigned int stride_shift,
@@ -79,6 +81,14 @@ static char *mod_devnode(struct device *dev, umode_t *mode) {
 long mod_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 
   switch (cmd) {
+      /* should be on the first place when compare */
+    case AFL_SNAPSHOT_IOCTL_TAKE: {
+
+      DBG_PRINT("Calling afl_snapshot_take");
+      /* should be in void state, while doing snapshot ? */
+      return (long)_stop_machine(take_snapshot, arg, NULL);
+
+    }
 
     case AFL_SNAPSHOT_EXCLUDE_VMRANGE: {
 
@@ -86,8 +96,9 @@ long mod_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 
       struct afl_snapshot_vmrange_args args;
       if (copy_from_user(&args, (void *)arg,
-                         sizeof(struct afl_snapshot_vmrange_args)))
+                         sizeof(struct afl_snapshot_vmrange_args))) {
         return -EINVAL;
+      }
 
       exclude_vmrange(args.start, args.end);
       return 0;
@@ -100,21 +111,15 @@ long mod_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 
       struct afl_snapshot_vmrange_args args;
       if (copy_from_user(&args, (void *)arg,
-                         sizeof(struct afl_snapshot_vmrange_args)))
+                         sizeof(struct afl_snapshot_vmrange_args))) {
         return -EINVAL;
+      }
 
       include_vmrange(args.start, args.end);
       return 0;
 
     }
 
-    case AFL_SNAPSHOT_IOCTL_TAKE: {
-
-      DBG_PRINT("Calling afl_snapshot_take");
-
-      return take_snapshot(arg);
-
-    }
 
     case AFL_SNAPSHOT_IOCTL_DO: {
 
@@ -142,6 +147,7 @@ long mod_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
       return 0;
 
     }
+    default: break;
 
   }
 
@@ -251,9 +257,14 @@ int snapshot_initialize_k_funcs() {
 
   k_flush_tlb_mm_range = (void *)_kallsyms_lookup_name("flush_tlb_mm_range");
   k_zap_page_range = (void *)_kallsyms_lookup_name("zap_page_range");
+  k_tasklist_lock = (void *)_kallsyms_lookup_name("tasklist_lock");
+  k_kern_addr_valid = (void*)_kallsyms_lookup_name("kern_addr_valid");
 
   if (!chek_kaddr(k_flush_tlb_mm_range) ||
-	!chek_kaddr(k_zap_page_range)) { return -ENOENT; }
+	!chek_kaddr(k_zap_page_range)   ||
+        !chek_kaddr(k_kern_addr_valid)  ||
+        !k_tasklist_lock)
+  { return -ENOENT; }
 
   SAYF("All loaded :3");
 
